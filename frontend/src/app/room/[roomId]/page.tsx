@@ -18,11 +18,21 @@ export default function RoomPage() {
   const router = useRouter();
   const roomId = params.roomId as string;
   const [showShareModal, setShowShareModal] = useState(false);
-  const [showJoinPrompt, setShowJoinPrompt] = useState(false);
-  const [isReady, setIsReady] = useState(false);
+  const [showJoinPrompt, setShowJoinPrompt] = useState(() => {
+    // Check on initial render if user has a name
+    if (typeof window !== "undefined") {
+      return !sessionStorage.getItem("userName");
+    }
+    return false;
+  });
   const { toasts, addToast, removeToast } = useToasts();
   const addToastRef = useRef(addToast);
-  addToastRef.current = addToast;
+  const hasInitialized = useRef(false);
+  
+  // Update ref in effect to avoid updating during render
+  useEffect(() => {
+    addToastRef.current = addToast;
+  }, [addToast]);
   
   const {
     isConnected,
@@ -153,33 +163,29 @@ export default function RoomPage() {
   ]);
 
   useEffect(() => {
-    // Check if user has a name
-    const storedName = sessionStorage.getItem("userName");
-    if (!storedName) {
-      // Show join prompt instead of redirecting
-      setShowJoinPrompt(true);
-      return;
-    }
+    // Skip setup if showing join prompt or already initialized
+    if (showJoinPrompt || hasInitialized.current) return;
 
+    hasInitialized.current = true;
     setRoomId(roomId);
     setupSocketListeners();
     connectSocket();
-    setIsReady(true);
 
     return () => {
       disconnectSocket();
       reset();
+      hasInitialized.current = false;
     };
-  }, [roomId, setRoomId, setupSocketListeners, reset]);
+  }, [roomId, setRoomId, setupSocketListeners, reset, showJoinPrompt]);
 
   const handleJoinWithName = (name: string) => {
     sessionStorage.setItem("userName", name);
     setUserName(name);
     setShowJoinPrompt(false);
+    hasInitialized.current = true;
     setRoomId(roomId);
     setupSocketListeners();
     connectSocket();
-    setIsReady(true);
   };
 
   const handleCancelJoin = () => {
@@ -203,14 +209,6 @@ export default function RoomPage() {
     );
   }
 
-  // Don't render until ready
-  if (!isReady) {
-    return (
-      <div className="h-screen w-screen bg-[var(--background)] flex items-center justify-center">
-        <div className="text-[var(--text-muted)]">Loading...</div>
-      </div>
-    );
-  }
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-[var(--background)] flex flex-col">

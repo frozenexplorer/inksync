@@ -22,7 +22,6 @@ export function Canvas() {
     currentStroke,
     tool,
     penColor,
-    penThickness,
     fontSize,
     userId,
     textInputPosition,
@@ -47,6 +46,31 @@ export function Canvas() {
     updateDimensions();
     window.addEventListener("resize", updateDimensions);
     return () => window.removeEventListener("resize", updateDimensions);
+  }, []);
+
+  // Helper functions for drawing (defined before use)
+  const drawStroke = useCallback((ctx: CanvasRenderingContext2D, stroke: Stroke | { id: string; points: Point[]; color: string; thickness: number; authorId: string }) => {
+    if (stroke.points.length < 2) return;
+
+    ctx.beginPath();
+    ctx.strokeStyle = stroke.color;
+    ctx.lineWidth = stroke.thickness;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+
+    ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
+    
+    for (let i = 1; i < stroke.points.length; i++) {
+      ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
+    }
+    
+    ctx.stroke();
+  }, []);
+
+  const drawText = useCallback((ctx: CanvasRenderingContext2D, text: TextItem) => {
+    ctx.font = `${text.fontSize}px 'Outfit', sans-serif`;
+    ctx.fillStyle = text.color;
+    ctx.fillText(text.content, text.position.x, text.position.y);
   }, []);
 
   // Draw all strokes and texts
@@ -77,36 +101,12 @@ export function Canvas() {
     Object.values(texts).forEach((text) => {
       drawText(ctx, text);
     });
-  }, [strokes, texts, currentStroke, userId]);
+  }, [strokes, texts, currentStroke, userId, drawStroke, drawText]);
 
   // Redraw on state changes
   useEffect(() => {
     requestAnimationFrame(draw);
   }, [draw]);
-
-  const drawStroke = (ctx: CanvasRenderingContext2D, stroke: Stroke | { id: string; points: Point[]; color: string; thickness: number; authorId: string }) => {
-    if (stroke.points.length < 2) return;
-
-    ctx.beginPath();
-    ctx.strokeStyle = stroke.color;
-    ctx.lineWidth = stroke.thickness;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-
-    ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
-    
-    for (let i = 1; i < stroke.points.length; i++) {
-      ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
-    }
-    
-    ctx.stroke();
-  };
-
-  const drawText = (ctx: CanvasRenderingContext2D, text: TextItem) => {
-    ctx.font = `${text.fontSize}px 'Outfit', sans-serif`;
-    ctx.fillStyle = text.color;
-    ctx.fillText(text.content, text.position.x, text.position.y);
-  };
 
   const getPointerPosition = (e: React.PointerEvent): Point => {
     const canvas = canvasRef.current;
