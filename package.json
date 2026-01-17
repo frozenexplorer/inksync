@@ -1,0 +1,16 @@
+{
+  "name": "inksync",
+  "version": "1.0.0",
+  "description": "Real-time collaborative whiteboard application",
+  "private": true,
+  "scripts": {
+    "setup": "git config core.hooksPath .githooks",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "install:all": "cd backend && npm install && cd ../frontend && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

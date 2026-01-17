@@ -38,13 +38,19 @@ A real-time collaborative whiteboard where multiple users can draw, erase, and a
 
 1. **Clone the repository**
 
-2. **Install Backend Dependencies**
+2. **Set up Git Hooks** (required for contributors)
+   ```bash
+   npm run setup
+   # Or manually: git config core.hooksPath .githooks
+   ```
+
+3. **Install Backend Dependencies**
    ```bash
    cd backend
    npm install
    ```
 
-3. **Install Frontend Dependencies**
+4. **Install Frontend Dependencies**
    ```bash
    cd frontend
    npm install
@@ -120,6 +126,28 @@ Broadcast to all connected clients
 ## One-Minute Pitch
 
 > "We use Next.js for UI and HTML5 Canvas for drawing. WebSockets via Socket.io keep a single shared whiteboard state in sync across users. Drawing is rendered optimistically on the client, while finalized actions are synchronized in real time."
+
+## Contributing
+
+### Branch Naming Convention
+
+Direct commits to `main` and `master` branches are **not allowed**. Please create a feature branch and submit a pull request.
+
+Branch names must follow this pattern:
+```
+(feature|bugfix|update|release|hotfix)/[a-z0-9._-]+
+```
+
+**Examples:**
+- `feature/add-user-auth`
+- `bugfix/fix-login-error`
+- `update/upgrade-dependencies`
+- `release/v1.0.0`
+- `hotfix/critical-security-fix`
+
+### Git Hooks
+
+This project uses pre-commit hooks to enforce branch naming conventions. Run `npm run setup` after cloning to enable them.
 
 ## License
 
