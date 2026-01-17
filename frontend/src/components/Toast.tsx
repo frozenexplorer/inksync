@@ -53,7 +53,7 @@ function Toast({ toast, onDismiss }: { toast: ToastMessage; onDismiss: () => voi
           damping: 30,
           filter: { duration: 0.2 }
         }}
-        className="pointer-events-auto bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 shadow-2xl flex items-center gap-3 min-w-[260px] max-w-[360px]"
+        className="relative pointer-events-auto bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 shadow-2xl flex items-center gap-3 min-w-[260px] max-w-[360px]"
       >
         {/* Error icon */}
         <div className="w-8 h-8 rounded-full flex items-center justify-center bg-red-500/20 shrink-0">
@@ -91,7 +91,7 @@ function Toast({ toast, onDismiss }: { toast: ToastMessage; onDismiss: () => voi
         damping: 30,
         filter: { duration: 0.2 }
       }}
-      className="pointer-events-auto bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-3 shadow-2xl flex items-center gap-3 min-w-[220px]"
+      className="relative pointer-events-auto bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-3 shadow-2xl flex items-center gap-3 min-w-[220px]"
     >
       {/* User avatar */}
       <div

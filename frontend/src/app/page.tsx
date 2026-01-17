@@ -39,6 +39,13 @@ export default function Home() {
     try {
       // Check if room exists before navigating
       const response = await fetch(`${API_URL}/api/rooms/${roomId.trim()}`);
+      
+      if (!response.ok) {
+        setErrorMessage(`Server error: ${response.status} ${response.statusText}`);
+        setIsLoading(false);
+        return;
+      }
+      
       const data = await response.json();
       
       if (!data.exists) {
