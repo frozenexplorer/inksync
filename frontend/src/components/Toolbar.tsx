@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useWhiteboardStore } from "@/store/whiteboard";
 import { getSocket } from "@/lib/socket";
-import { Tool } from "@/lib/types";
+import { Tool, EraserMode } from "@/lib/types";
 
 const COLORS = [
   "#000000", "#FFFFFF", "#FF6B6B", "#4ECDC4", 
@@ -23,10 +23,14 @@ export function Toolbar() {
     penThickness,
     role,
     showCursorCount,
+    eraserMode,
+    eraserSize,
     setTool,
     setPenColor,
     setPenThickness,
     setShowCursorCount,
+    setEraserMode,
+    setEraserSize,
   } = useWhiteboardStore();
 
   const handleClearBoard = () => {
@@ -89,6 +93,73 @@ export function Toolbar() {
           </button>
         ))}
       </div>
+
+      {/* Eraser Mode Options - shown when eraser is selected */}
+      <AnimatePresence>
+        {tool === "eraser" && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="w-full h-px bg-[var(--border)] mb-3" />
+            <div className="flex flex-col gap-2">
+              <span className="text-[10px] text-[var(--text-muted)] text-center uppercase tracking-wide">Eraser Type</span>
+              
+              {/* Stroke Eraser */}
+              <button
+                onClick={() => setEraserMode("stroke")}
+                className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-all ${
+                  eraserMode === "stroke"
+                    ? "bg-[var(--primary)] text-black"
+                    : "hover:bg-[var(--surface-hover)] text-[var(--text-muted)]"
+                }`}
+                title="Stroke Eraser - Deletes entire strokes"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                <span>Stroke</span>
+              </button>
+              
+              {/* Pixel Eraser */}
+              <button
+                onClick={() => setEraserMode("pixel")}
+                className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-all ${
+                  eraserMode === "pixel"
+                    ? "bg-[var(--primary)] text-black"
+                    : "hover:bg-[var(--surface-hover)] text-[var(--text-muted)]"
+                }`}
+                title="Pixel Eraser - Erases parts of strokes"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14v7" />
+                </svg>
+                <span>Pixel</span>
+              </button>
+              
+              {/* Eraser Size Slider */}
+              <div className="flex flex-col gap-1 mt-1">
+                <span className="text-[10px] text-[var(--text-muted)] text-center uppercase tracking-wide">
+                  Size: {eraserSize}px
+                </span>
+                <input
+                  type="range"
+                  min="5"
+                  max="50"
+                  value={eraserSize}
+                  onChange={(e) => setEraserSize(Number(e.target.value))}
+                  className="w-full h-1.5 bg-[var(--surface-hover)] rounded-full appearance-none cursor-pointer accent-[var(--primary)]"
+                />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="w-full h-px bg-[var(--border)]" />
 

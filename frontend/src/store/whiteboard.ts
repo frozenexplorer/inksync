@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Stroke, TextItem, User, WhiteboardState, Tool, Point, CursorPosition } from '@/lib/types';
+import { Stroke, TextItem, User, WhiteboardState, Tool, Point, CursorPosition, EraserMode } from '@/lib/types';
 
 interface LocalStroke {
   id: string;
@@ -35,6 +35,8 @@ interface WhiteboardStore {
   penColor: string;
   penThickness: number;
   fontSize: number;
+  eraserMode: EraserMode;
+  eraserSize: number;
   
   // Settings
   showCursorCount: boolean;
@@ -72,6 +74,11 @@ interface WhiteboardStore {
   setPenColor: (color: string) => void;
   setPenThickness: (thickness: number) => void;
   setFontSize: (size: number) => void;
+  setEraserMode: (mode: EraserMode) => void;
+  setEraserSize: (size: number) => void;
+  
+  // Stroke manipulation for pixel eraser
+  updateStroke: (stroke: Stroke) => void;
   
   // Settings actions
   setShowCursorCount: (show: boolean) => void;
@@ -99,6 +106,8 @@ const initialState = {
   penColor: '#000000',
   penThickness: 3,
   fontSize: 16,
+  eraserMode: 'stroke' as EraserMode,
+  eraserSize: 20,
   textInputPosition: null,
   showCursorCount: false,
 };
@@ -200,6 +209,12 @@ export const useWhiteboardStore = create<WhiteboardStore>((set, get) => ({
   setPenColor: (penColor) => set({ penColor }),
   setPenThickness: (penThickness) => set({ penThickness }),
   setFontSize: (fontSize) => set({ fontSize }),
+  setEraserMode: (eraserMode) => set({ eraserMode }),
+  setEraserSize: (eraserSize) => set({ eraserSize }),
+  
+  updateStroke: (stroke) => set((state) => ({
+    strokes: { ...state.strokes, [stroke.id]: stroke }
+  })),
   
   setShowCursorCount: (showCursorCount) => set({ showCursorCount }),
   

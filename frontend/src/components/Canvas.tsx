@@ -12,6 +12,7 @@ export function Canvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  const [eraserCursor, setEraserCursor] = useState<Point | null>(null);
   const isDrawing = useRef(false);
   const lastPoint = useRef<Point | null>(null);
   const lastCursorEmit = useRef(0);
@@ -25,11 +26,15 @@ export function Canvas() {
     fontSize,
     userId,
     textInputPosition,
+    eraserMode,
+    eraserSize,
     startStroke,
     extendStroke,
     finishStroke,
     setTextInputPosition,
     removeStrokes,
+    updateStroke,
+    addStroke,
   } = useWhiteboardStore();
 
   // Resize handler
@@ -152,9 +157,14 @@ export function Canvas() {
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
-    if (!isDrawing.current) return;
-    
     const point = getPointerPosition(e);
+    
+    // Update eraser cursor position for visual indicator
+    if (tool === "eraser") {
+      setEraserCursor(point);
+    }
+    
+    if (!isDrawing.current) return;
 
     if (tool === "pen") {
       extendStroke(point);
@@ -163,6 +173,28 @@ export function Canvas() {
     } else if (tool === "eraser") {
       handleErase(point);
       emitCursorPosition(point, true);
+    }
+  };
+  
+  const handlePointerLeaveCanvas = (e: React.PointerEvent) => {
+    setEraserCursor(null);
+    if (isDrawing.current) {
+      const point = getPointerPosition(e);
+      isDrawing.current = false;
+      lastPoint.current = null;
+      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+      emitCursorPosition(point, false);
+
+      if (tool === "pen") {
+        const stroke = finishStroke();
+        if (stroke && stroke.points.length > 1 && userId) {
+          const fullStroke: Stroke = {
+            ...stroke,
+            authorId: userId,
+          };
+          getSocket().emit("stroke:add", fullStroke);
+        }
+      }
     }
   };
 
@@ -190,24 +222,83 @@ export function Canvas() {
   };
 
   const handleErase = (point: Point) => {
-    const eraserRadius = 20;
-    const strokesToErase: string[] = [];
+    if (eraserMode === "stroke") {
+      // Stroke eraser - delete entire strokes
+      const strokesToErase: string[] = [];
 
-    Object.values(strokes).forEach((stroke) => {
-      for (const p of stroke.points) {
-        const distance = Math.sqrt(
-          Math.pow(p.x - point.x, 2) + Math.pow(p.y - point.y, 2)
-        );
-        if (distance < eraserRadius) {
-          strokesToErase.push(stroke.id);
-          break;
+      Object.values(strokes).forEach((stroke) => {
+        for (const p of stroke.points) {
+          const distance = Math.sqrt(
+            Math.pow(p.x - point.x, 2) + Math.pow(p.y - point.y, 2)
+          );
+          if (distance < eraserSize) {
+            strokesToErase.push(stroke.id);
+            break;
+          }
         }
-      }
-    });
+      });
 
-    if (strokesToErase.length > 0) {
-      removeStrokes(strokesToErase);
-      getSocket().emit("erase:strokes", strokesToErase);
+      if (strokesToErase.length > 0) {
+        removeStrokes(strokesToErase);
+        getSocket().emit("erase:strokes", strokesToErase);
+      }
+    } else {
+      // Pixel eraser - erase parts of strokes
+      Object.values(strokes).forEach((stroke) => {
+        const newSegments: Point[][] = [];
+        let currentSegment: Point[] = [];
+
+        stroke.points.forEach((p) => {
+          const distance = Math.sqrt(
+            Math.pow(p.x - point.x, 2) + Math.pow(p.y - point.y, 2)
+          );
+
+          if (distance >= eraserSize) {
+            // Point is outside eraser, keep it
+            currentSegment.push(p);
+          } else {
+            // Point is inside eraser, start a new segment
+            if (currentSegment.length >= 2) {
+              newSegments.push([...currentSegment]);
+            }
+            currentSegment = [];
+          }
+        });
+
+        // Don't forget the last segment
+        if (currentSegment.length >= 2) {
+          newSegments.push(currentSegment);
+        }
+
+        // If stroke was modified
+        if (newSegments.length === 0) {
+          // Entire stroke erased
+          removeStrokes([stroke.id]);
+          getSocket().emit("erase:strokes", [stroke.id]);
+        } else if (newSegments.length === 1 && newSegments[0].length === stroke.points.length) {
+          // No change
+        } else {
+          // Stroke was split or partially erased
+          // Remove original stroke
+          removeStrokes([stroke.id]);
+          getSocket().emit("erase:strokes", [stroke.id]);
+
+          // Add new strokes for each segment
+          newSegments.forEach((segment) => {
+            if (segment.length >= 2) {
+              const newStroke: Stroke = {
+                id: nanoid(),
+                points: segment,
+                color: stroke.color,
+                thickness: stroke.thickness,
+                authorId: stroke.authorId,
+              };
+              addStroke(newStroke);
+              getSocket().emit("stroke:add", newStroke);
+            }
+          });
+        }
+      });
     }
   };
 
@@ -235,7 +326,7 @@ export function Canvas() {
       case "pen":
         return "cursor-pen";
       case "eraser":
-        return "cursor-eraser";
+        return "cursor-none"; // Hide default cursor, we'll show custom one
       case "text":
         return "cursor-text";
       default:
@@ -253,8 +344,23 @@ export function Canvas() {
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        onPointerLeave={handlePointerUp}
+        onPointerLeave={handlePointerLeaveCanvas}
       />
+      
+      {/* Eraser cursor indicator */}
+      {tool === "eraser" && eraserCursor && (
+        <div
+          className="pointer-events-none absolute rounded-full border-2 transition-all duration-75"
+          style={{
+            left: eraserCursor.x - eraserSize,
+            top: eraserCursor.y - eraserSize,
+            width: eraserSize * 2,
+            height: eraserSize * 2,
+            borderColor: eraserMode === "stroke" ? "#ef4444" : "#f59e0b",
+            backgroundColor: eraserMode === "stroke" ? "rgba(239, 68, 68, 0.1)" : "rgba(245, 158, 11, 0.1)",
+          }}
+        />
+      )}
       
       {/* Remote cursor tooltips */}
       <CursorTooltips />

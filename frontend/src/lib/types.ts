@@ -37,6 +37,8 @@ export interface WhiteboardState {
 
 export type Tool = 'pen' | 'eraser' | 'text';
 
+export type EraserMode = 'stroke' | 'pixel';
+
 export interface CursorPosition {
   userId: string;
   userName: string;
