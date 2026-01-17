@@ -1,0 +1,48 @@
+#!/usr/bin/env node
+// Cross-platform pre-commit hook using Node.js
+const { execSync } = require("child_process");
+
+try {
+  const localBranch = execSync("git rev-parse --abbrev-ref HEAD", { encoding: "utf-8" }).trim();
+  const validBranchRegex = /^(feature|bugfix|update|release|hotfix)\/[a-z0-9._-]+$/;
+
+  // Allow standard branches and detached HEAD state (for rebase support)
+  // Note: main/master are excluded to prevent direct commits - use pull requests instead
+  // HEAD is kept to support rebase operations
+  const standardBranches = ["develop", "HEAD"];
+  const protectedBranches = ["main", "master"];
+
+  console.log("🔍 Running pre-commit hook...");
+
+  // Block commits to protected branches
+  if (protectedBranches.includes(localBranch)) {
+    console.error("\n❌ Direct commits to '" + localBranch + "' branch are not allowed!");
+    console.error("📝 Please create a feature branch and submit a pull request instead.");
+    console.error("\nTo create a new branch:");
+    console.error("  git checkout -b feature/your-feature-name");
+    console.error("  git checkout -b bugfix/your-bugfix-name");
+    console.error("  git checkout -b update/your-update-name\n");
+    process.exit(1);
+  }
+
+  // Allow commits on standard branches or branches matching the pattern
+  if (standardBranches.includes(localBranch) || validBranchRegex.test(localBranch)) {
+    console.log("✅ Branch name is valid: " + localBranch);
+    process.exit(0);
+  } else {
+    console.error("\n❌ Invalid branch name: " + localBranch);
+    console.error("\n📋 Branch names must follow this pattern:");
+    console.error("   (feature|bugfix|update|release|hotfix)/[a-z0-9._-]+");
+    console.error("\n📝 Examples:");
+    console.error("   feature/add-user-auth");
+    console.error("   bugfix/fix-login-error");
+    console.error("   update/upgrade-dependencies");
+    console.error("   release/v1.0.0");
+    console.error("   hotfix/critical-security-fix\n");
+    console.error("Your commit will be rejected. Rename your branch and try again.");
+    process.exit(1);
+  }
+} catch (error) {
+  console.error("Error running pre-commit hook:", error.message);
+  process.exit(1);
+}
