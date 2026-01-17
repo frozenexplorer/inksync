@@ -9,7 +9,7 @@ import {
   clearBoard,
   getNewHostId
 } from '../rooms/manager';
-import { Stroke, TextItem, JoinRoomPayload } from '../types';
+import { Stroke, TextItem, JoinRoomPayload, CursorUpdate, Point } from '../types';
 
 interface SocketData {
   userId: string;
@@ -93,6 +93,29 @@ export function setupSocketHandlers(io: Server) {
       if (clearBoard(roomId, userId)) {
         io.to(roomId).emit('board:cleared');
       }
+    });
+
+    // Cursor position update
+    socket.on('cursor:move', (data: { position: Point; isActive: boolean }) => {
+      if (!socketData) return;
+      const { roomId, userId, userName } = socketData;
+      
+      const room = getRoom(roomId);
+      if (!room) return;
+      
+      const user = room.state.users[userId];
+      if (!user) return;
+      
+      const cursorUpdate: CursorUpdate = {
+        userId,
+        userName,
+        userColor: user.color,
+        position: data.position,
+        isActive: data.isActive,
+      };
+      
+      // Broadcast to others (not back to sender)
+      socket.to(roomId).emit('cursor:update', cursorUpdate);
     });
 
     // Disconnect

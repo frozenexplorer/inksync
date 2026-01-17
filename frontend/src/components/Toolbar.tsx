@@ -1,6 +1,7 @@
 "use client";
 
-import { motion } from "framer-motion";
+import React, { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useWhiteboardStore } from "@/store/whiteboard";
 import { getSocket } from "@/lib/socket";
 import { Tool } from "@/lib/types";
@@ -14,14 +15,18 @@ const COLORS = [
 const THICKNESSES = [2, 4, 6, 10, 16];
 
 export function Toolbar() {
+  const [showSettings, setShowSettings] = useState(false);
+  
   const {
     tool,
     penColor,
     penThickness,
     role,
+    showCursorCount,
     setTool,
     setPenColor,
     setPenThickness,
+    setShowCursorCount,
   } = useWhiteboardStore();
 
   const handleClearBoard = () => {
@@ -31,7 +36,7 @@ export function Toolbar() {
     }
   };
 
-  const tools: { id: Tool; icon: JSX.Element; label: string }[] = [
+  const tools: { id: Tool; icon: React.ReactNode; label: string }[] = [
     {
       id: "pen",
       icon: (
@@ -152,6 +157,61 @@ export function Toolbar() {
           </button>
         </>
       )}
+
+      <div className="w-full h-px bg-[var(--border)]" />
+
+      {/* Settings */}
+      <div className="relative">
+        <button
+          onClick={() => setShowSettings(!showSettings)}
+          className={`p-3 rounded-xl transition-all duration-150 ${
+            showSettings
+              ? "bg-[var(--primary)] text-black"
+              : "hover:bg-[var(--surface-hover)] text-[var(--text-muted)] hover:text-white"
+          }`}
+          title="Settings"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </button>
+
+        {/* Settings Panel */}
+        <AnimatePresence>
+          {showSettings && (
+            <motion.div
+              initial={{ opacity: 0, x: -10, scale: 0.95 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: -10, scale: 0.95 }}
+              transition={{ duration: 0.15 }}
+              className="absolute left-full ml-3 top-0 bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 shadow-xl min-w-[200px]"
+            >
+              <h3 className="text-sm font-semibold mb-3 text-white">Settings</h3>
+              
+              {/* Show Cursor Count Toggle */}
+              <label className="flex items-center justify-between gap-3 cursor-pointer group">
+                <span className="text-sm text-[var(--text-muted)] group-hover:text-white transition-colors">
+                  Show cursor count
+                </span>
+                <button
+                  onClick={() => setShowCursorCount(!showCursorCount)}
+                  className={`relative w-10 h-6 rounded-full transition-colors duration-200 ${
+                    showCursorCount ? "bg-[var(--primary)]" : "bg-[var(--surface-hover)]"
+                  }`}
+                >
+                  <motion.div
+                    initial={false}
+                    animate={{ x: showCursorCount ? 16 : 2 }}
+                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                    className="absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm"
+                  />
+                </button>
+              </label>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </motion.div>
   );
 }

@@ -6,6 +6,7 @@ import { getSocket } from "@/lib/socket";
 import { nanoid } from "nanoid";
 import { Point, Stroke, TextItem } from "@/lib/types";
 import { TextOverlay } from "./TextOverlay";
+import { CursorTooltips } from "./CursorTooltips";
 
 export function Canvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -13,6 +14,7 @@ export function Canvas() {
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const isDrawing = useRef(false);
   const lastPoint = useRef<Point | null>(null);
+  const lastCursorEmit = useRef(0);
   
   const {
     strokes,
@@ -117,6 +119,18 @@ export function Canvas() {
     };
   };
 
+  // Emit cursor position (throttled to ~30fps)
+  const emitCursorPosition = useCallback((point: Point, isActive: boolean) => {
+    const now = Date.now();
+    if (now - lastCursorEmit.current < 33) return; // Throttle to ~30fps
+    lastCursorEmit.current = now;
+    
+    const socket = getSocket();
+    if (socket.connected) {
+      socket.emit("cursor:move", { position: point, isActive });
+    }
+  }, []);
+
   const handlePointerDown = (e: React.PointerEvent) => {
     const point = getPointerPosition(e);
 
@@ -125,10 +139,12 @@ export function Canvas() {
       lastPoint.current = point;
       const strokeId = nanoid();
       startStroke(strokeId, point);
+      emitCursorPosition(point, true);
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
     } else if (tool === "eraser") {
       isDrawing.current = true;
       handleErase(point);
+      emitCursorPosition(point, true);
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
     } else if (tool === "text") {
       setTextInputPosition(point);
@@ -143,17 +159,23 @@ export function Canvas() {
     if (tool === "pen") {
       extendStroke(point);
       lastPoint.current = point;
+      emitCursorPosition(point, true);
     } else if (tool === "eraser") {
       handleErase(point);
+      emitCursorPosition(point, true);
     }
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
     if (!isDrawing.current) return;
     
+    const point = getPointerPosition(e);
     isDrawing.current = false;
     lastPoint.current = null;
     (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+    
+    // Emit that drawing stopped
+    emitCursorPosition(point, false);
 
     if (tool === "pen") {
       const stroke = finishStroke();
@@ -233,6 +255,9 @@ export function Canvas() {
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerUp}
       />
+      
+      {/* Remote cursor tooltips */}
+      <CursorTooltips />
       
       {textInputPosition && (
         <TextOverlay

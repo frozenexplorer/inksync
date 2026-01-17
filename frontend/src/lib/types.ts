@@ -37,6 +37,15 @@ export interface WhiteboardState {
 
 export type Tool = 'pen' | 'eraser' | 'text';
 
+export interface CursorPosition {
+  userId: string;
+  userName: string;
+  userColor: string;
+  position: Point;
+  isActive: boolean; // true when user is actively drawing
+  timestamp: number;
+}
+
 export interface RoomStatePayload {
   state: WhiteboardState;
   userId: string;

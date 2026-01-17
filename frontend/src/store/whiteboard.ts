@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Stroke, TextItem, User, WhiteboardState, Tool, Point } from '@/lib/types';
+import { Stroke, TextItem, User, WhiteboardState, Tool, Point, CursorPosition } from '@/lib/types';
 
 interface LocalStroke {
   id: string;
@@ -24,6 +24,9 @@ interface WhiteboardStore {
   texts: Record<string, TextItem>;
   users: Record<string, User>;
   
+  // Remote cursor positions
+  remoteCursors: Record<string, CursorPosition>;
+  
   // Local drawing state
   currentStroke: LocalStroke | null;
   
@@ -32,6 +35,9 @@ interface WhiteboardStore {
   penColor: string;
   penThickness: number;
   fontSize: number;
+  
+  // Settings
+  showCursorCount: boolean;
   
   // Text input state
   textInputPosition: Point | null;
@@ -52,6 +58,10 @@ interface WhiteboardStore {
   removeUser: (userId: string) => void;
   setHostChanged: (newHostId: string) => void;
   
+  // Cursor tracking
+  updateRemoteCursor: (cursor: CursorPosition) => void;
+  removeRemoteCursor: (userId: string) => void;
+  
   // Local drawing
   startStroke: (id: string, point: Point) => void;
   extendStroke: (point: Point) => void;
@@ -62,6 +72,9 @@ interface WhiteboardStore {
   setPenColor: (color: string) => void;
   setPenThickness: (thickness: number) => void;
   setFontSize: (size: number) => void;
+  
+  // Settings actions
+  setShowCursorCount: (show: boolean) => void;
   
   // Text input
   setTextInputPosition: (position: Point | null) => void;
@@ -80,12 +93,14 @@ const initialState = {
   strokes: {},
   texts: {},
   users: {},
+  remoteCursors: {} as Record<string, CursorPosition>,
   currentStroke: null,
   tool: 'pen' as Tool,
   penColor: '#000000',
   penThickness: 3,
   fontSize: 16,
   textInputPosition: null,
+  showCursorCount: false,
 };
 
 export const useWhiteboardStore = create<WhiteboardStore>((set, get) => ({
@@ -126,8 +141,10 @@ export const useWhiteboardStore = create<WhiteboardStore>((set, get) => ({
   
   removeUser: (userId) => set((state) => {
     const newUsers = { ...state.users };
+    const newCursors = { ...state.remoteCursors };
     delete newUsers[userId];
-    return { users: newUsers };
+    delete newCursors[userId];
+    return { users: newUsers, remoteCursors: newCursors };
   }),
   
   setHostChanged: (newHostId) => set((state) => {
@@ -142,6 +159,16 @@ export const useWhiteboardStore = create<WhiteboardStore>((set, get) => ({
     // Update own role if applicable
     const newRole = state.userId === newHostId ? 'host' : state.role;
     return { users: newUsers, role: newRole };
+  }),
+  
+  updateRemoteCursor: (cursor) => set((state) => ({
+    remoteCursors: { ...state.remoteCursors, [cursor.userId]: cursor }
+  })),
+  
+  removeRemoteCursor: (userId) => set((state) => {
+    const newCursors = { ...state.remoteCursors };
+    delete newCursors[userId];
+    return { remoteCursors: newCursors };
   }),
   
   startStroke: (id, point) => set({
@@ -173,6 +200,8 @@ export const useWhiteboardStore = create<WhiteboardStore>((set, get) => ({
   setPenColor: (penColor) => set({ penColor }),
   setPenThickness: (penThickness) => set({ penThickness }),
   setFontSize: (fontSize) => set({ fontSize }),
+  
+  setShowCursorCount: (showCursorCount) => set({ showCursorCount }),
   
   setTextInputPosition: (textInputPosition) => set({ textInputPosition }),
   

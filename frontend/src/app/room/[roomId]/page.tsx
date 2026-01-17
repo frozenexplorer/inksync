@@ -10,7 +10,7 @@ import { Toolbar } from "@/components/Toolbar";
 import { PresenceBar } from "@/components/PresenceBar";
 import { ShareModal } from "@/components/ShareModal";
 import { JoinPromptModal } from "@/components/JoinPromptModal";
-import { RoomStatePayload, Stroke, TextItem, User } from "@/lib/types";
+import { RoomStatePayload, Stroke, TextItem, User, CursorPosition } from "@/lib/types";
 
 export default function RoomPage() {
   const params = useParams();
@@ -35,6 +35,8 @@ export default function RoomPage() {
     addUser,
     removeUser,
     setHostChanged,
+    updateRemoteCursor,
+    removeRemoteCursor,
     reset,
   } = useWhiteboardStore();
 
@@ -83,10 +85,20 @@ export default function RoomPage() {
 
     socket.on("user:left", (userId: string) => {
       removeUser(userId);
+      removeRemoteCursor(userId);
     });
 
     socket.on("host:changed", (newHostId: string) => {
       setHostChanged(newHostId);
+    });
+
+    // Cursor updates from other users
+    socket.on("cursor:update", (cursorData: { userId: string; userName: string; userColor: string; position: { x: number; y: number }; isActive: boolean }) => {
+      const cursor: CursorPosition = {
+        ...cursorData,
+        timestamp: Date.now(),
+      };
+      updateRemoteCursor(cursor);
     });
   }, [
     roomId,
@@ -101,6 +113,8 @@ export default function RoomPage() {
     addUser,
     removeUser,
     setHostChanged,
+    updateRemoteCursor,
+    removeRemoteCursor,
   ]);
 
   useEffect(() => {

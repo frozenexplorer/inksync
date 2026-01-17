@@ -57,3 +57,11 @@ export interface RoomStatePayload {
 export interface CreateRoomResponse {
   roomId: string;
 }
+
+export interface CursorUpdate {
+  userId: string;
+  userName: string;
+  userColor: string;
+  position: Point;
+  isActive: boolean;
+}
