@@ -1,0 +1,117 @@
+import { Server, Socket } from 'socket.io';
+import { 
+  addUserToRoom, 
+  removeUserFromRoom, 
+  getRoom, 
+  addStroke, 
+  removeStrokes,
+  addText,
+  clearBoard,
+  getNewHostId
+} from '../rooms/manager';
+import { Stroke, TextItem, JoinRoomPayload } from '../types';
+
+interface SocketData {
+  userId: string;
+  roomId: string;
+  userName: string;
+}
+
+export function setupSocketHandlers(io: Server) {
+  io.on('connection', (socket: Socket) => {
+    console.log('Client connected:', socket.id);
+    
+    let socketData: SocketData | null = null;
+
+    // Join room
+    socket.on('room:join', (payload: JoinRoomPayload) => {
+      const { roomId, userName } = payload;
+      const userId = socket.id;
+      
+      socketData = { userId, roomId, userName };
+      
+      // Join the socket room
+      socket.join(roomId);
+      
+      // Add user to room state
+      const { user } = addUserToRoom(roomId, userId, userName);
+      
+      // Get current room state
+      const room = getRoom(roomId);
+      if (!room) return;
+
+      // Send full state to the joining user
+      socket.emit('room:state', {
+        state: room.state,
+        userId,
+        role: user.role,
+        userColor: user.color
+      });
+
+      // Broadcast to others that a new user joined
+      socket.to(roomId).emit('user:joined', user);
+      
+      console.log(`User ${userName} (${userId}) joined room ${roomId} as ${user.role}`);
+    });
+
+    // New stroke added
+    socket.on('stroke:add', (stroke: Stroke) => {
+      if (!socketData) return;
+      const { roomId } = socketData;
+      
+      if (addStroke(roomId, stroke)) {
+        // Broadcast to all clients in the room (including sender)
+        io.to(roomId).emit('stroke:added', stroke);
+      }
+    });
+
+    // Strokes erased
+    socket.on('erase:strokes', (strokeIds: string[]) => {
+      if (!socketData) return;
+      const { roomId } = socketData;
+      
+      if (removeStrokes(roomId, strokeIds)) {
+        io.to(roomId).emit('strokes:erased', strokeIds);
+      }
+    });
+
+    // Text added
+    socket.on('text:add', (text: TextItem) => {
+      if (!socketData) return;
+      const { roomId } = socketData;
+      
+      if (addText(roomId, text)) {
+        io.to(roomId).emit('text:added', text);
+      }
+    });
+
+    // Clear board (host only)
+    socket.on('board:clear', () => {
+      if (!socketData) return;
+      const { roomId, userId } = socketData;
+      
+      if (clearBoard(roomId, userId)) {
+        io.to(roomId).emit('board:cleared');
+      }
+    });
+
+    // Disconnect
+    socket.on('disconnect', () => {
+      if (!socketData) return;
+      const { roomId, userId } = socketData;
+      
+      const user = removeUserFromRoom(roomId, userId);
+      if (user) {
+        socket.to(roomId).emit('user:left', userId);
+        
+        // If host left, notify about new host
+        const newHostId = getNewHostId(roomId);
+        if (newHostId && newHostId !== userId) {
+          io.to(roomId).emit('host:changed', newHostId);
+        }
+      }
+      
+      console.log('Client disconnected:', socket.id);
+    });
+  });
+}
