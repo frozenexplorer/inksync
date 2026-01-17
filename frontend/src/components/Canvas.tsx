@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useCallback, useState } from "react";
+import { AnimatePresence } from "framer-motion";
 import { useWhiteboardStore } from "@/store/whiteboard";
 import { getSocket } from "@/lib/socket";
 import { nanoid } from "nanoid";
@@ -33,8 +34,8 @@ export function Canvas() {
     finishStroke,
     setTextInputPosition,
     removeStrokes,
-    updateStroke,
     addStroke,
+    addText,
   } = useWhiteboardStore();
 
   // Resize handler
@@ -137,6 +138,9 @@ export function Canvas() {
   }, []);
 
   const handlePointerDown = (e: React.PointerEvent) => {
+    // Don't handle if text input is already open
+    if (textInputPosition) return;
+    
     const point = getPointerPosition(e);
 
     if (tool === "pen") {
@@ -152,6 +156,8 @@ export function Canvas() {
       emitCursorPosition(point, true);
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
     } else if (tool === "text") {
+      // Don't capture pointer for text tool - let the input handle it
+      e.preventDefault();
       setTextInputPosition(point);
     }
   };
@@ -303,7 +309,7 @@ export function Canvas() {
   };
 
   const handleTextSubmit = (content: string) => {
-    if (!textInputPosition || !userId || !content.trim()) {
+    if (!textInputPosition || !content.trim()) {
       setTextInputPosition(null);
       return;
     }
@@ -314,10 +320,18 @@ export function Canvas() {
       content: content.trim(),
       fontSize,
       color: penColor,
-      authorId: userId,
+      authorId: userId || "anonymous",
     };
 
-    getSocket().emit("text:add", text);
+    // Add locally first for immediate feedback
+    addText(text);
+    
+    // Then sync to server
+    const socket = getSocket();
+    if (socket.connected) {
+      socket.emit("text:add", text);
+    }
+    
     setTextInputPosition(null);
   };
 
@@ -365,15 +379,19 @@ export function Canvas() {
       {/* Remote cursor tooltips */}
       <CursorTooltips />
       
-      {textInputPosition && (
-        <TextOverlay
-          position={textInputPosition}
-          onSubmit={handleTextSubmit}
-          onCancel={() => setTextInputPosition(null)}
-          fontSize={fontSize}
-          color={penColor}
-        />
-      )}
+      {/* Text input overlay */}
+      <AnimatePresence>
+        {textInputPosition && (
+          <TextOverlay
+            key="text-overlay"
+            position={textInputPosition}
+            onSubmit={handleTextSubmit}
+            onCancel={() => setTextInputPosition(null)}
+            fontSize={fontSize}
+            color={penColor}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
