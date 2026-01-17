@@ -21,7 +21,7 @@ export function PresenceBar() {
           >
             <div
               className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold text-white border-2 ${
-                user.userId === userId ? "border-[var(--primary)]" : "border-transparent"
+                user.userId === userId ? "border-(--primary)" : "border-transparent"
               }`}
               style={{ backgroundColor: user.color }}
               title={`${user.name}${user.role === "host" ? " (Host)" : ""}`}
@@ -37,23 +37,23 @@ export function PresenceBar() {
             )}
             
             {/* Tooltip */}
-            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2 py-1 bg-[var(--surface)] border border-[var(--border)] rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2 py-1 bg-(--surface) border border-(--border) rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
               {user.name}
               {user.role === "host" && <span className="text-yellow-400 ml-1">(Host)</span>}
-              {user.userId === userId && <span className="text-[var(--primary)] ml-1">(You)</span>}
+              {user.userId === userId && <span className="text-(--primary) ml-1">(You)</span>}
             </div>
           </motion.div>
         ))}
       </AnimatePresence>
       
       {userList.length > 5 && (
-        <div className="w-8 h-8 rounded-full bg-[var(--surface-hover)] border border-[var(--border)] flex items-center justify-center text-xs text-[var(--text-muted)]">
+        <div className="w-8 h-8 rounded-full bg-(--surface-hover) border border-(--border) flex items-center justify-center text-xs text-(--text-muted)">
           +{userList.length - 5}
         </div>
       )}
       
       {userList.length === 0 && (
-        <div className="text-xs text-[var(--text-muted)]">
+        <div className="text-xs text-(--text-muted)">
           No users
         </div>
       )}
