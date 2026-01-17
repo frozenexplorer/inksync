@@ -3,11 +3,14 @@
 import { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
+export type ToastType = "join" | "leave" | "error";
+
 export interface ToastMessage {
   id: string;
-  type: "join" | "leave";
-  userName: string;
-  userColor: string;
+  type: ToastType;
+  userName?: string;
+  userColor?: string;
+  message?: string; // For error messages
 }
 
 interface ToastProps {
@@ -29,12 +32,53 @@ export function ToastContainer({ toasts, removeToast }: ToastProps) {
 
 function Toast({ toast, onDismiss }: { toast: ToastMessage; onDismiss: () => void }) {
   useEffect(() => {
-    const timer = setTimeout(onDismiss, 3000);
+    const timer = setTimeout(onDismiss, toast.type === "error" ? 4000 : 3000);
     return () => clearTimeout(timer);
-  }, [onDismiss]);
+  }, [onDismiss, toast.type]);
 
   const isJoin = toast.type === "join";
+  const isError = toast.type === "error";
 
+  // Error toast
+  if (isError) {
+    return (
+      <motion.div
+        layout
+        initial={{ opacity: 0, x: 50, scale: 0.9, filter: "blur(8px)" }}
+        animate={{ opacity: 1, x: 0, scale: 1, filter: "blur(0px)" }}
+        exit={{ opacity: 0, x: 50, scale: 0.9, filter: "blur(8px)" }}
+        transition={{ 
+          type: "spring", 
+          stiffness: 400, 
+          damping: 30,
+          filter: { duration: 0.2 }
+        }}
+        className="pointer-events-auto bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 shadow-2xl flex items-center gap-3 min-w-[260px] max-w-[360px]"
+      >
+        {/* Error icon */}
+        <div className="w-8 h-8 rounded-full flex items-center justify-center bg-red-500/20 shrink-0">
+          <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        </div>
+
+        {/* Message */}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm text-white font-medium">{toast.message}</p>
+        </div>
+
+        {/* Progress bar */}
+        <motion.div
+          initial={{ scaleX: 1 }}
+          animate={{ scaleX: 0 }}
+          transition={{ duration: 4, ease: "linear" }}
+          className="absolute bottom-0 left-0 right-0 h-0.5 origin-left rounded-b-xl bg-red-500/50"
+        />
+      </motion.div>
+    );
+  }
+
+  // Join/Leave toast
   return (
     <motion.div
       layout
@@ -52,9 +96,9 @@ function Toast({ toast, onDismiss }: { toast: ToastMessage; onDismiss: () => voi
       {/* User avatar */}
       <div
         className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
-        style={{ backgroundColor: toast.userColor }}
+        style={{ backgroundColor: toast.userColor || "#666" }}
       >
-        {toast.userName.charAt(0).toUpperCase()}
+        {toast.userName?.charAt(0).toUpperCase() || "?"}
       </div>
 
       {/* Message */}

@@ -54,3 +54,14 @@ export interface RoomStatePayload {
   role: 'host' | 'participant';
   userColor: string;
 }
+
+export interface JoinRoomPayload {
+  roomId: string;
+  userName: string;
+  isCreating?: boolean;
+}
+
+export interface RoomErrorPayload {
+  code: 'ROOM_NOT_FOUND' | 'ROOM_FULL' | 'UNKNOWN';
+  message: string;
+}

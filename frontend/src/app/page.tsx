@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { nanoid } from "nanoid";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
 export default function Home() {
   const router = useRouter();
   const [showJoinModal, setShowJoinModal] = useState(false);
@@ -12,6 +14,7 @@ export default function Home() {
   const [roomId, setRoomId] = useState("");
   const [userName, setUserName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleCreateRoom = async () => {
     if (!userName.trim()) return;
@@ -23,14 +26,33 @@ export default function Home() {
     // Store username in sessionStorage for the room page
     sessionStorage.setItem("userName", userName.trim());
     
-    router.push(`/room/${newRoomId}`);
+    // Add ?create=true to indicate this is a new room
+    router.push(`/room/${newRoomId}?create=true`);
   };
 
-  const handleJoinRoom = () => {
+  const handleJoinRoom = async () => {
     if (!roomId.trim() || !userName.trim()) return;
     
-    sessionStorage.setItem("userName", userName.trim());
-    router.push(`/room/${roomId.trim()}`);
+    setIsLoading(true);
+    setErrorMessage(null);
+    
+    try {
+      // Check if room exists before navigating
+      const response = await fetch(`${API_URL}/api/rooms/${roomId.trim()}`);
+      const data = await response.json();
+      
+      if (!data.exists) {
+        setErrorMessage(`Room "${roomId.trim()}" doesn't exist`);
+        setIsLoading(false);
+        return;
+      }
+      
+      sessionStorage.setItem("userName", userName.trim());
+      router.push(`/room/${roomId.trim()}`);
+    } catch {
+      setErrorMessage("Unable to connect to server. Please try again.");
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -146,7 +168,7 @@ export default function Home() {
       {/* Join Room Modal */}
       <AnimatePresence>
         {showJoinModal && (
-          <Modal onClose={() => setShowJoinModal(false)}>
+          <Modal onClose={() => { setShowJoinModal(false); setErrorMessage(null); }}>
             <h2 className="text-2xl font-bold mb-6">Join a Room</h2>
             <div className="space-y-4">
               <div>
@@ -170,18 +192,38 @@ export default function Home() {
                 <input
                   type="text"
                   value={roomId}
-                  onChange={(e) => setRoomId(e.target.value)}
+                  onChange={(e) => { setRoomId(e.target.value); setErrorMessage(null); }}
                   placeholder="Enter room ID"
-                  className="w-full px-4 py-3 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:border-[var(--primary)] transition-colors"
+                  className={`w-full px-4 py-3 bg-[var(--surface)] border rounded-lg focus:outline-none transition-colors ${
+                    errorMessage ? "border-red-500" : "border-[var(--border)] focus:border-[var(--primary)]"
+                  }`}
                   maxLength={20}
                 />
               </div>
+              
+              {/* Error Message */}
+              <AnimatePresence>
+                {errorMessage && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="flex items-center gap-2 px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-lg"
+                  >
+                    <svg className="w-4 h-4 text-red-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <span className="text-sm text-red-400">{errorMessage}</span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              
               <button
                 onClick={handleJoinRoom}
-                disabled={!userName.trim() || !roomId.trim()}
+                disabled={!userName.trim() || !roomId.trim() || isLoading}
                 className="w-full py-3 bg-[var(--primary)] hover:bg-[var(--primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed text-black font-semibold rounded-lg transition-colors"
               >
-                Join Room
+                {isLoading ? "Checking..." : "Join Room"}
               </button>
             </div>
           </Modal>
