@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, useState } from "react";
+import { useEffect, useCallback, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { useWhiteboardStore } from "@/store/whiteboard";
@@ -10,6 +10,7 @@ import { Toolbar } from "@/components/Toolbar";
 import { PresenceBar } from "@/components/PresenceBar";
 import { ShareModal } from "@/components/ShareModal";
 import { JoinPromptModal } from "@/components/JoinPromptModal";
+import { ToastContainer, useToasts } from "@/components/Toast";
 import { RoomStatePayload, Stroke, TextItem, User, CursorPosition } from "@/lib/types";
 
 export default function RoomPage() {
@@ -19,6 +20,9 @@ export default function RoomPage() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [showJoinPrompt, setShowJoinPrompt] = useState(false);
   const [isReady, setIsReady] = useState(false);
+  const { toasts, addToast, removeToast } = useToasts();
+  const addToastRef = useRef(addToast);
+  addToastRef.current = addToast;
   
   const {
     isConnected,
@@ -42,6 +46,19 @@ export default function RoomPage() {
 
   const setupSocketListeners = useCallback(() => {
     const socket = getSocket();
+
+    // Remove existing listeners to prevent duplicates
+    socket.off("connect");
+    socket.off("disconnect");
+    socket.off("room:state");
+    socket.off("stroke:added");
+    socket.off("strokes:erased");
+    socket.off("text:added");
+    socket.off("board:cleared");
+    socket.off("user:joined");
+    socket.off("user:left");
+    socket.off("host:changed");
+    socket.off("cursor:update");
 
     socket.on("connect", () => {
       setConnected(true);
@@ -81,9 +98,27 @@ export default function RoomPage() {
 
     socket.on("user:joined", (user: User) => {
       addUser(user);
+      // Show toast for other users joining
+      addToastRef.current({
+        type: "join",
+        userName: user.name,
+        userColor: user.color,
+      });
     });
 
     socket.on("user:left", (userId: string) => {
+      // Get user info before removing for the toast
+      const users = useWhiteboardStore.getState().users;
+      const leavingUser = users[userId];
+      
+      if (leavingUser) {
+        addToastRef.current({
+          type: "leave",
+          userName: leavingUser.name,
+          userColor: leavingUser.color,
+        });
+      }
+      
       removeUser(userId);
       removeRemoteCursor(userId);
     });
@@ -249,6 +284,9 @@ export default function RoomPage() {
         onClose={() => setShowShareModal(false)} 
         roomId={roomId} 
       />
+
+      {/* Toast notifications */}
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
     </div>
   );
 }
