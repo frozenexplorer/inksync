@@ -20,7 +20,7 @@ interface ToastProps {
 
 export function ToastContainer({ toasts, removeToast }: ToastProps) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] flex flex-col gap-2 pointer-events-none">
+    <div className="fixed bottom-6 right-6 z-100 flex flex-col gap-2 pointer-events-none">
       <AnimatePresence mode="popLayout">
         {toasts.map((toast) => (
           <Toast key={toast.id} toast={toast} onDismiss={() => removeToast(toast.id)} />
@@ -91,7 +91,7 @@ function Toast({ toast, onDismiss }: { toast: ToastMessage; onDismiss: () => voi
         damping: 30,
         filter: { duration: 0.2 }
       }}
-      className="relative pointer-events-auto bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-3 shadow-2xl flex items-center gap-3 min-w-[220px]"
+      className="relative pointer-events-auto bg-(--surface) border border-(--border) rounded-xl px-4 py-3 shadow-2xl flex items-center gap-3 min-w-[220px]"
     >
       {/* User avatar */}
       <div
@@ -104,7 +104,7 @@ function Toast({ toast, onDismiss }: { toast: ToastMessage; onDismiss: () => voi
       {/* Message */}
       <div className="flex-1 min-w-0">
         <p className="text-sm text-white font-medium truncate">{toast.userName}</p>
-        <p className="text-xs text-[var(--text-muted)]">
+        <p className="text-xs text-(--text-muted)">
           {isJoin ? "joined the room" : "left the room"}
         </p>
       </div>

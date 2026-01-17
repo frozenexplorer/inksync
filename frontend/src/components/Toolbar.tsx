@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useWhiteboardStore } from "@/store/whiteboard";
 import { getSocket } from "@/lib/socket";
-import { Tool, EraserMode } from "@/lib/types";
+import { Tool } from "@/lib/types";
 
 const COLORS = [
   "#000000", "#FFFFFF", "#FF6B6B", "#4ECDC4", 
@@ -74,7 +74,7 @@ export function Toolbar() {
     <motion.div
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
-      className="absolute left-4 top-1/2 -translate-y-1/2 bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-3 flex flex-col gap-3 shadow-xl"
+      className="absolute left-4 top-1/2 -translate-y-1/2 bg-(--surface) border border-(--border) rounded-2xl p-3 flex flex-col gap-3 shadow-xl"
     >
       {/* Tools */}
       <div className="flex flex-col gap-1">
@@ -84,8 +84,8 @@ export function Toolbar() {
             onClick={() => setTool(t.id)}
             className={`p-3 rounded-xl transition-all duration-150 ${
               tool === t.id
-                ? "bg-[var(--primary)] text-black"
-                : "hover:bg-[var(--surface-hover)] text-[var(--text-muted)] hover:text-white"
+                ? "bg-(--primary) text-black"
+                : "hover:bg-(--surface-hover) text-(--text-muted) hover:text-white"
             }`}
             title={t.label}
           >
@@ -104,17 +104,17 @@ export function Toolbar() {
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="w-full h-px bg-[var(--border)] mb-3" />
+            <div className="w-full h-px bg-(--border) mb-3" />
             <div className="flex flex-col gap-2">
-              <span className="text-[10px] text-[var(--text-muted)] text-center uppercase tracking-wide">Eraser Type</span>
+              <span className="text-[10px] text-(--text-muted) text-center uppercase tracking-wide">Eraser Type</span>
               
               {/* Stroke Eraser */}
               <button
                 onClick={() => setEraserMode("stroke")}
                 className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-all ${
                   eraserMode === "stroke"
-                    ? "bg-[var(--primary)] text-black"
-                    : "hover:bg-[var(--surface-hover)] text-[var(--text-muted)]"
+                    ? "bg-(--primary) text-black"
+                    : "hover:bg-(--surface-hover) text-(--text-muted)"
                 }`}
                 title="Stroke Eraser - Deletes entire strokes"
               >
@@ -129,8 +129,8 @@ export function Toolbar() {
                 onClick={() => setEraserMode("pixel")}
                 className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-all ${
                   eraserMode === "pixel"
-                    ? "bg-[var(--primary)] text-black"
-                    : "hover:bg-[var(--surface-hover)] text-[var(--text-muted)]"
+                    ? "bg-(--primary) text-black"
+                    : "hover:bg-(--surface-hover) text-(--text-muted)"
                 }`}
                 title="Pixel Eraser - Erases parts of strokes"
               >
@@ -144,7 +144,7 @@ export function Toolbar() {
               
               {/* Eraser Size Slider */}
               <div className="flex flex-col gap-1 mt-1">
-                <span className="text-[10px] text-[var(--text-muted)] text-center uppercase tracking-wide">
+                <span className="text-[10px] text-(--text-muted) text-center uppercase tracking-wide">
                   Size: {eraserSize}px
                 </span>
                 <input
@@ -153,7 +153,7 @@ export function Toolbar() {
                   max="50"
                   value={eraserSize}
                   onChange={(e) => setEraserSize(Number(e.target.value))}
-                  className="w-full h-1.5 bg-[var(--surface-hover)] rounded-full appearance-none cursor-pointer accent-[var(--primary)]"
+                  className="w-full h-1.5 bg-(--surface-hover) rounded-full appearance-none cursor-pointer accent-(--primary)"
                 />
               </div>
             </div>
@@ -161,18 +161,18 @@ export function Toolbar() {
         )}
       </AnimatePresence>
 
-      <div className="w-full h-px bg-[var(--border)]" />
+      <div className="w-full h-px bg-(--border)" />
 
       {/* Colors */}
       <div className="flex flex-col gap-1.5">
-        <span className="text-[10px] text-[var(--text-muted)] text-center uppercase tracking-wide">Color</span>
+        <span className="text-[10px] text-(--text-muted) text-center uppercase tracking-wide">Color</span>
         <div className="grid grid-cols-2 gap-1">
           {COLORS.map((color) => (
             <button
               key={color}
               onClick={() => setPenColor(color)}
               className={`w-6 h-6 rounded-lg transition-transform duration-150 hover:scale-110 ${
-                penColor === color ? "ring-2 ring-[var(--primary)] ring-offset-2 ring-offset-[var(--surface)]" : ""
+                penColor === color ? "ring-2 ring-(--primary) ring-offset-2 ring-offset-(--surface)" : ""
               }`}
               style={{ 
                 backgroundColor: color,
@@ -184,11 +184,11 @@ export function Toolbar() {
         </div>
       </div>
 
-      <div className="w-full h-px bg-[var(--border)]" />
+      <div className="w-full h-px bg-(--border)" />
 
       {/* Thickness */}
       <div className="flex flex-col gap-1.5">
-        <span className="text-[10px] text-[var(--text-muted)] text-center uppercase tracking-wide">Size</span>
+        <span className="text-[10px] text-(--text-muted) text-center uppercase tracking-wide">Size</span>
         <div className="flex flex-col gap-1 items-center">
           {THICKNESSES.map((thickness) => (
             <button
@@ -196,8 +196,8 @@ export function Toolbar() {
               onClick={() => setPenThickness(thickness)}
               className={`w-full p-1.5 rounded-lg flex items-center justify-center transition-all duration-150 ${
                 penThickness === thickness
-                  ? "bg-[var(--primary)]/20"
-                  : "hover:bg-[var(--surface-hover)]"
+                  ? "bg-(--primary)/20"
+                  : "hover:bg-(--surface-hover)"
               }`}
               title={`${thickness}px`}
             >
@@ -216,7 +216,7 @@ export function Toolbar() {
       {/* Clear Board (Host only) */}
       {role === "host" && (
         <>
-          <div className="w-full h-px bg-[var(--border)]" />
+          <div className="w-full h-px bg-(--border)" />
           <button
             onClick={handleClearBoard}
             className="p-3 rounded-xl text-red-400 hover:bg-red-500/20 transition-colors"
@@ -229,7 +229,7 @@ export function Toolbar() {
         </>
       )}
 
-      <div className="w-full h-px bg-[var(--border)]" />
+      <div className="w-full h-px bg-(--border)" />
 
       {/* Settings */}
       <div className="relative">
@@ -237,8 +237,8 @@ export function Toolbar() {
           onClick={() => setShowSettings(!showSettings)}
           className={`p-3 rounded-xl transition-all duration-150 ${
             showSettings
-              ? "bg-[var(--primary)] text-black"
-              : "hover:bg-[var(--surface-hover)] text-[var(--text-muted)] hover:text-white"
+              ? "bg-(--primary) text-black"
+              : "hover:bg-(--surface-hover) text-(--text-muted) hover:text-white"
           }`}
           title="Settings"
         >
@@ -256,19 +256,19 @@ export function Toolbar() {
               animate={{ opacity: 1, x: 0, scale: 1 }}
               exit={{ opacity: 0, x: -10, scale: 0.95 }}
               transition={{ duration: 0.15 }}
-              className="absolute left-full ml-3 top-0 bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 shadow-xl min-w-[200px]"
+              className="absolute left-full ml-3 top-0 bg-(--surface) border border-(--border) rounded-xl p-4 shadow-xl min-w-[200px]"
             >
               <h3 className="text-sm font-semibold mb-3 text-white">Settings</h3>
               
               {/* Show Cursor Count Toggle */}
               <label className="flex items-center justify-between gap-3 cursor-pointer group">
-                <span className="text-sm text-[var(--text-muted)] group-hover:text-white transition-colors">
+                <span className="text-sm text-(--text-muted) group-hover:text-white transition-colors">
                   Show cursor count
                 </span>
                 <button
                   onClick={() => setShowCursorCount(!showCursorCount)}
                   className={`relative w-10 h-6 rounded-full transition-colors duration-200 ${
-                    showCursorCount ? "bg-[var(--primary)]" : "bg-[var(--surface-hover)]"
+                    showCursorCount ? "bg-(--primary)" : "bg-(--surface-hover)"
                   }`}
                 >
                   <motion.div
