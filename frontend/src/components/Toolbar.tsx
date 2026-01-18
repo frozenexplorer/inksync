@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useWhiteboardStore } from "@/store/whiteboard";
 import { getSocket } from "@/lib/socket";
 import { Tool } from "@/lib/types";
+import { TEXT_FONTS, TEXT_SIZE_RANGE } from "@/lib/typography";
 
 const COLORS = [
   "#000000", "#FFFFFF", "#FF6B6B", "#4ECDC4", 
@@ -21,6 +22,8 @@ export function Toolbar() {
     tool,
     penColor,
     penThickness,
+    fontSize,
+    fontFamily,
     role,
     showCursorCount,
     eraserMode,
@@ -28,6 +31,8 @@ export function Toolbar() {
     setTool,
     setPenColor,
     setPenThickness,
+    setFontSize,
+    setFontFamily,
     setShowCursorCount,
     setEraserMode,
     setEraserSize,
@@ -153,6 +158,55 @@ export function Toolbar() {
                   max="50"
                   value={eraserSize}
                   onChange={(e) => setEraserSize(Number(e.target.value))}
+                  className="w-full h-1.5 bg-(--surface-hover) rounded-full appearance-none cursor-pointer accent-(--primary)"
+                />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Text Typography Options - shown when text is selected */}
+      <AnimatePresence>
+        {tool === "text" && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="w-full h-px bg-(--border) mb-3" />
+            <div className="flex flex-col gap-2">
+              <span className="text-[10px] text-(--text-muted) text-center uppercase tracking-wide">Typography</span>
+              <div className="flex flex-col gap-1">
+                {TEXT_FONTS.map((font) => (
+                  <button
+                    key={font.id}
+                    onClick={() => setFontFamily(font.family)}
+                    className={`w-full px-2 py-1 rounded-lg text-xs text-left transition-all ${
+                      fontFamily === font.family
+                        ? "bg-(--primary) text-black"
+                        : "hover:bg-(--surface-hover) text-(--text-muted) hover:text-white"
+                    }`}
+                    style={{ fontFamily: font.family }}
+                  >
+                    {font.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex flex-col gap-1 mt-1">
+                <span className="text-[10px] text-(--text-muted) text-center uppercase tracking-wide">
+                  Text Size: {fontSize}px
+                </span>
+                <input
+                  type="range"
+                  min={TEXT_SIZE_RANGE.min}
+                  max={TEXT_SIZE_RANGE.max}
+                  step={TEXT_SIZE_RANGE.step}
+                  value={fontSize}
+                  onChange={(e) => setFontSize(Number(e.target.value))}
                   className="w-full h-1.5 bg-(--surface-hover) rounded-full appearance-none cursor-pointer accent-(--primary)"
                 />
               </div>

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
+import { DEFAULT_TEXT_FONT_FAMILY } from "@/lib/typography";
 import { Point } from "@/lib/types";
 
 interface TextOverlayProps {
@@ -10,6 +11,7 @@ interface TextOverlayProps {
   onCancel: () => void;
   fontSize: number;
   color?: string;
+  fontFamily?: string;
   containerWidth?: number;
   containerHeight?: number;
 }
@@ -18,7 +20,7 @@ const INPUT_MIN_WIDTH = 200;
 const INPUT_HEIGHT = 70; // Approximate height including hint text
 const EDGE_MARGIN = 16;
 
-export function TextOverlay({ position, onSubmit, onCancel, fontSize, containerWidth, containerHeight }: TextOverlayProps) {
+export function TextOverlay({ position, onSubmit, onCancel, fontSize, containerWidth, containerHeight, fontFamily }: TextOverlayProps) {
   const [text, setText] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const isSubmitting = useRef(false);
@@ -50,6 +52,7 @@ export function TextOverlay({ position, onSubmit, onCancel, fontSize, containerW
 
     return { left, top, openLeft, openUp };
   }, [position, containerWidth, containerHeight]);
+  const resolvedFontFamily = fontFamily ?? DEFAULT_TEXT_FONT_FAMILY;
 
   useEffect(() => {
     // Focus with a small delay to ensure the element is fully rendered
@@ -113,7 +116,7 @@ export function TextOverlay({ position, onSubmit, onCancel, fontSize, containerW
         className="bg-white backdrop-blur-sm outline-none border-2 border-(--primary) rounded px-2 py-1 min-w-[150px] max-w-[200px] shadow-lg text-black"
         style={{ 
           fontSize: `${fontSize}px`, 
-          fontFamily: "'Outfit', sans-serif"
+          fontFamily: resolvedFontFamily
         }}
       />
       <div className={`text-[10px] text-(--text-muted) mt-1 ${openLeft ? "text-right" : ""}`}>
