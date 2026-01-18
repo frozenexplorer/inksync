@@ -58,15 +58,6 @@ const toolConfigs: Array<{ id: Tool; label: string; icon: JSX.Element }> = [
     )
   },
   {
-    id: "highlighter",
-    label: "Highlighter",
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19l-7 2 2-7m5 5l9-9m0 0l-4-4m4 4l4-4m-13 5l4-4M7 7l12-5" opacity="0.6" />
-      </svg>
-    )
-  },
-  {
     id: "eraser",
     label: "Eraser",
     icon: (
@@ -90,33 +81,6 @@ const toolConfigs: Array<{ id: Tool; label: string; icon: JSX.Element }> = [
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 4h12M12 4v16m-6 0h12" />
-      </svg>
-    )
-  },
-  {
-    id: "sticky",
-    label: "Sticky",
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-      </svg>
-    )
-  },
-  {
-    id: "laser",
-    label: "Laser",
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-      </svg>
-    )
-  },
-  {
-    id: "image",
-    label: "Image",
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
       </svg>
     )
   },
@@ -461,7 +425,8 @@ export function Toolbar() {
           ref={toolbarRef}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className={`bg-(--surface)/95 backdrop-blur-xl border border-(--border) shadow-2xl flex flex-row items-center gap-1.5 px-3 py-2 rounded-xl pointer-events-auto`}
+          className={`bg-(--surface)/95 backdrop-blur-xl border border-(--border) shadow-2xl flex flex-row items-center gap-1.5 px-3 py-2 rounded-xl pointer-events-auto ${isNarrow ? "w-full justify-between max-w-[calc(100vw-24px)]" : ""
+            }`}
         >
           {!forceCompact && (
             <button
@@ -517,7 +482,7 @@ export function Toolbar() {
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
-                      <span>Stroke</span>
+                      {!isNarrow && <span>Stroke</span>}
                     </button>
                     <button
                       onClick={() => setEraserMode("pixel")}
@@ -531,11 +496,11 @@ export function Toolbar() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14v7" />
                       </svg>
-                      <span>Pixel</span>
+                      {!isNarrow && <span>Pixel</span>}
                     </button>
                   </div>
                   <div className={`flex ${isHorizontal ? "items-center gap-2" : "flex-col gap-1"}`}>
-                    <span className={sectionLabelClass}>Size: {eraserSize}px</span>
+                    {!isNarrow && <span className={sectionLabelClass}>Size: {eraserSize}px</span>}
                     <input
                       type="range"
                       min="2"
@@ -609,7 +574,7 @@ export function Toolbar() {
                       transition={{ duration: 0.15 }}
                       className="fixed left-1/2 -translate-x-1/2 bg-(--surface)/98 backdrop-blur-xl border border-(--border) rounded-xl p-4 shadow-2xl z-50"
                       style={{
-                        width: "580px",
+                        width: isNarrow ? "calc(100vw - 32px)" : "580px",
                         maxWidth: "90vw",
                         bottom: "80px" // Position just above the toolbar
                       }}
@@ -638,8 +603,8 @@ export function Toolbar() {
                           </div>
                         )}
 
-                        {/* Color Palette Grid - Wider layout */}
-                        <div className="grid grid-cols-16 gap-2">
+                        {/* Color Palette Grid - Responsive Layout */}
+                        <div className={`grid gap-2 ${isNarrow ? "grid-cols-8" : "grid-cols-16"}`}>
                           {COLORS.map((color) => (
                             <button
                               key={color}
@@ -709,7 +674,7 @@ export function Toolbar() {
                 <div className={dividerClass} />
 
                 <div className={`flex ${isHorizontal ? "items-center gap-2" : "flex-col gap-1.5"}`}>
-                  <span className={sectionLabelClass}>Size</span>
+                  {!isNarrow && <span className={sectionLabelClass}>Size</span>}
                   <div className={`flex ${isHorizontal ? "items-center gap-2" : "flex-col gap-1 items-center"}`}>
                     {THICKNESSES.map((thickness) => (
                       <button
@@ -740,7 +705,7 @@ export function Toolbar() {
               <>
                 <div className={dividerClass} />
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-(--text-muted)">Fill</span>
+                  {!isNarrow && <span className="text-xs text-(--text-muted)">Fill</span>}
                   <button
                     onClick={() => setFill(!fill)}
                     className={`relative w-10 h-6 rounded-full transition-colors duration-200 ${fill ? "bg-(--primary)" : "bg-(--surface-hover)"
