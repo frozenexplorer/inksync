@@ -26,8 +26,20 @@ export function setupSocketHandlers(io: Server) {
 
     // Join room
     socket.on('room:join', (payload: JoinRoomPayload) => {
-      const { roomId, userName } = payload;
+      const { roomId, userName, isCreating = false } = payload;
       const userId = socket.id;
+      
+      // Check if room exists when joining (not creating)
+      const existingRoom = getRoom(roomId);
+      if (!isCreating && !existingRoom) {
+        // Room doesn't exist and user is trying to join
+        socket.emit('room:error', {
+          code: 'ROOM_NOT_FOUND',
+          message: `Room "${roomId}" doesn't exist`
+        });
+        console.log(`User ${userName} tried to join non-existent room ${roomId}`);
+        return;
+      }
       
       socketData = { userId, roomId, userName };
       

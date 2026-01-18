@@ -19,11 +19,11 @@ export function CursorTooltips() {
             animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
             exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
             transition={{ duration: 0.2 }}
-            className="absolute top-4 left-4 flex items-center gap-2 bg-[var(--surface)]/90 backdrop-blur-sm border border-[var(--border)] px-3 py-2 rounded-full shadow-lg"
+            className="absolute top-4 left-4 flex items-center gap-2 bg-(--surface)/90 backdrop-blur-sm border border-(--border) px-3 py-2 rounded-full shadow-lg"
           >
             <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--primary)] opacity-75" />
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[var(--primary)]" />
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-(--primary) opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-(--primary)" />
             </span>
             <span className="text-xs font-medium text-white">
               {cursors.length} {cursors.length === 1 ? "person" : "people"} drawing

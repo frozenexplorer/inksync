@@ -38,20 +38,23 @@ export function Canvas() {
     addText,
   } = useWhiteboardStore();
 
-  // Resize handler
+  // Resize handler using ResizeObserver for reliable dimension updates
   useEffect(() => {
-    const updateDimensions = () => {
-      if (containerRef.current) {
-        setDimensions({
-          width: containerRef.current.clientWidth,
-          height: containerRef.current.clientHeight,
-        });
-      }
-    };
+    const container = containerRef.current;
+    if (!container) return;
 
-    updateDimensions();
-    window.addEventListener("resize", updateDimensions);
-    return () => window.removeEventListener("resize", updateDimensions);
+    const resizeObserver = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) {
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0) {
+          setDimensions({ width: Math.floor(width), height: Math.floor(height) });
+        }
+      }
+    });
+
+    resizeObserver.observe(container);
+    return () => resizeObserver.disconnect();
   }, []);
 
   // Helper functions for drawing (defined before use)
@@ -84,6 +87,9 @@ export function Canvas() {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
+    
+    // Don't draw if dimensions aren't set yet
+    if (canvas.width === 0 || canvas.height === 0) return;
 
     // Clear canvas with white background
     ctx.fillStyle = "#ffffff";
@@ -109,10 +115,12 @@ export function Canvas() {
     });
   }, [strokes, texts, currentStroke, userId, drawStroke, drawText]);
 
-  // Redraw on state changes
+  // Redraw on state changes and dimension changes
   useEffect(() => {
-    requestAnimationFrame(draw);
-  }, [draw]);
+    if (dimensions.width > 0 && dimensions.height > 0) {
+      requestAnimationFrame(draw);
+    }
+  }, [draw, dimensions]);
 
   const getPointerPosition = (e: React.PointerEvent): Point => {
     const canvas = canvasRef.current;
@@ -354,7 +362,7 @@ export function Canvas() {
         ref={canvasRef}
         width={dimensions.width}
         height={dimensions.height}
-        className={`w-full h-full touch-none ${getCursorClass()}`}
+        className={`w-full h-full touch-none bg-white ${getCursorClass()}`}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}

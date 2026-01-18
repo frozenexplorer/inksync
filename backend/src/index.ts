@@ -4,6 +4,7 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import { setupSocketHandlers } from './socket/handlers';
 import { nanoid } from 'nanoid';
+import { getRoom } from './rooms/manager';
 
 const app = express();
 const httpServer = createServer(app);
@@ -45,11 +46,11 @@ app.post('/api/rooms', (req, res) => {
   res.json({ roomId });
 });
 
-// Check if room exists (optional - rooms are created on first join)
+// Check if room exists
 app.get('/api/rooms/:roomId', (req, res) => {
   const { roomId } = req.params;
-  // Rooms are created dynamically, so we just return success
-  res.json({ roomId, exists: true });
+  const room = getRoom(roomId);
+  res.json({ roomId, exists: !!room });
 });
 
 const PORT = process.env.PORT || 3001;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useCallback, useState, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { useWhiteboardStore } from "@/store/whiteboard";
 import { connectSocket, disconnectSocket, getSocket } from "@/lib/socket";
@@ -12,12 +12,14 @@ import { ChatPanel } from "@/components/ChatPanel";
 import { ShareModal } from "@/components/ShareModal";
 import { JoinPromptModal } from "@/components/JoinPromptModal";
 import { ToastContainer, useToasts } from "@/components/Toast";
-import { RoomStatePayload, Stroke, TextItem, User, CursorPosition, ChatMessage } from "@/lib/types";
+import { RoomStatePayload, Stroke, TextItem, User, CursorPosition, RoomErrorPayload, ChatMessage } from "@/lib/types";
 
 export default function RoomPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const roomId = params.roomId as string;
+  const isCreating = searchParams.get("create") === "true";
   const [showShareModal, setShowShareModal] = useState(false);
   const [showJoinPrompt, setShowJoinPrompt] = useState(() => {
     // Check on initial render if user has a name
@@ -31,6 +33,7 @@ export default function RoomPage() {
   const { toasts, addToast, removeToast } = useToasts();
   const addToastRef = useRef(addToast);
   const hasInitialized = useRef(false);
+  const isCreatingRef = useRef(isCreating);
   const isChatOpenRef = useRef(isChatOpen);
   const userIdRef = useRef<string | null>(null);
   
@@ -83,6 +86,7 @@ export default function RoomPage() {
     socket.off("connect");
     socket.off("disconnect");
     socket.off("room:state");
+    socket.off("room:error");
     socket.off("stroke:added");
     socket.off("strokes:erased");
     socket.off("text:added");
@@ -100,8 +104,27 @@ export default function RoomPage() {
       const storedName = sessionStorage.getItem("userName") || "Anonymous";
       setUserName(storedName);
       
-      // Join the room
-      socket.emit("room:join", { roomId, userName: storedName });
+      // Join the room - pass isCreating flag
+      socket.emit("room:join", { 
+        roomId, 
+        userName: storedName, 
+        isCreating: isCreatingRef.current 
+      });
+    });
+
+    socket.on("room:error", (error: RoomErrorPayload) => {
+      // Show error toast
+      addToastRef.current({
+        type: "error",
+        message: error.message,
+      });
+      
+      // Disconnect and redirect after a short delay
+      setTimeout(() => {
+        disconnectSocket();
+        reset();
+        router.push("/");
+      }, 1500);
     });
 
     socket.on("disconnect", () => {
@@ -178,6 +201,7 @@ export default function RoomPage() {
     });
   }, [
     roomId,
+    router,
     setConnected,
     setUserName,
     setUserInfo,
@@ -191,6 +215,7 @@ export default function RoomPage() {
     setHostChanged,
     updateRemoteCursor,
     removeRemoteCursor,
+    reset,
   ]);
 
   useEffect(() => {
