@@ -34,15 +34,12 @@ export function setupSocketHandlers(io: Server) {
       const { roomId, userName, isCreating = false, clerkUserId } = payload;
       const userId = socket.id;
       
-      // Check if room exists when joining (not creating)
-      const existingRoom = getRoom(roomId);
-      if (!isCreating && !existingRoom) {
-        // Room doesn't exist and user is trying to join
+      // Validate room ID format (basic check)
+      if (!roomId || roomId.length < 4 || roomId.length > 20) {
         socket.emit('room:error', {
-          code: 'ROOM_NOT_FOUND',
-          message: `Room "${roomId}" doesn't exist`
+          code: 'INVALID_ROOM_ID',
+          message: 'Invalid room ID format'
         });
-        console.log(`User ${userName} tried to join non-existent room ${roomId}`);
         return;
       }
       
@@ -52,11 +49,18 @@ export function setupSocketHandlers(io: Server) {
       socket.join(roomId);
       
       // Add user to room state (pass Clerk user ID for ownership tracking)
+      // This will create the room if it doesn't exist (via getOrCreateRoom)
       const { user } = addUserToRoom(roomId, userId, userName, clerkUserId || null);
       
       // Get current room state
       const room = getRoom(roomId);
-      if (!room) return;
+      if (!room) {
+        socket.emit('room:error', {
+          code: 'ROOM_CREATION_FAILED',
+          message: 'Failed to create or access room'
+        });
+        return;
+      }
 
       // Get room expiry info
       const expiryInfo = getRoomExpiryInfo(roomId);
