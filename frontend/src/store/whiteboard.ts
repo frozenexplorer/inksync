@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Stroke, TextItem, User, WhiteboardState, Tool, Point, CursorPosition, EraserMode } from '@/lib/types';
+import { Stroke, TextItem, User, WhiteboardState, Tool, Point, CursorPosition, EraserMode, ChatMessage } from '@/lib/types';
 
 interface LocalStroke {
   id: string;
@@ -7,6 +7,8 @@ interface LocalStroke {
   color: string;
   thickness: number;
 }
+
+const MAX_CHAT_MESSAGES = 200;
 
 interface WhiteboardStore {
   // Connection state
@@ -23,6 +25,7 @@ interface WhiteboardStore {
   strokes: Record<string, Stroke>;
   texts: Record<string, TextItem>;
   users: Record<string, User>;
+  messages: ChatMessage[];
   
   // Remote cursor positions
   remoteCursors: Record<string, CursorPosition>;
@@ -55,6 +58,7 @@ interface WhiteboardStore {
   addStroke: (stroke: Stroke) => void;
   removeStrokes: (strokeIds: string[]) => void;
   addText: (text: TextItem) => void;
+  addMessage: (message: ChatMessage) => void;
   clearBoard: () => void;
   addUser: (user: User) => void;
   removeUser: (userId: string) => void;
@@ -100,6 +104,7 @@ const initialState = {
   strokes: {},
   texts: {},
   users: {},
+  messages: [] as ChatMessage[],
   remoteCursors: {} as Record<string, CursorPosition>,
   currentStroke: null,
   tool: 'pen' as Tool,
@@ -124,6 +129,7 @@ export const useWhiteboardStore = create<WhiteboardStore>((set, get) => ({
     strokes: state.strokes,
     texts: state.texts,
     users: state.users,
+    messages: state.messages ?? [],
   }),
   
   addStroke: (stroke) => set((state) => ({
@@ -141,6 +147,14 @@ export const useWhiteboardStore = create<WhiteboardStore>((set, get) => ({
   addText: (text) => set((state) => ({
     texts: { ...state.texts, [text.id]: text }
   })),
+
+  addMessage: (message) => set((state) => {
+    const nextMessages = [...state.messages, message];
+    if (nextMessages.length > MAX_CHAT_MESSAGES) {
+      return { messages: nextMessages.slice(-MAX_CHAT_MESSAGES) };
+    }
+    return { messages: nextMessages };
+  }),
   
   clearBoard: () => set({ strokes: {}, texts: {} }),
   
