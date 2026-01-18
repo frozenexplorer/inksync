@@ -9,14 +9,35 @@ const app = express();
 const httpServer = createServer(app);
 
 // Configure CORS
-const allowedOrigins: string[] = [
-  'http://localhost:3000',
-  'http://localhost:3001',
-  process.env.FRONTEND_URL
-].filter((origin): origin is string => Boolean(origin));
+const isAllowedOrigin = (origin: string | undefined): boolean => {
+  if (!origin) return false;
+  
+  // Allow localhost for development
+  if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+    return true;
+  }
+  
+  // Allow Vercel preview and production URLs
+  if (origin.includes('.vercel.app') || origin.includes('vercel.app')) {
+    return true;
+  }
+  
+  // Allow explicitly configured frontend URL
+  if (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL) {
+    return true;
+  }
+  
+  return false;
+};
 
 app.use(cors({
-  origin: allowedOrigins,
+  origin: (origin, callback) => {
+    if (isAllowedOrigin(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 
@@ -43,7 +64,13 @@ async function createRoomId(): Promise<string> {
 // Socket.io setup
 const io = new Server(httpServer, {
   cors: {
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      if (isAllowedOrigin(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     methods: ['GET', 'POST'],
     credentials: true
   }
@@ -80,4 +107,10 @@ const PORT = process.env.PORT || 3001;
 httpServer.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📡 WebSocket server ready`);
+  console.log(`🌐 CORS configured for:`);
+  console.log(`   - Localhost (development)`);
+  console.log(`   - All Vercel preview URLs (*.vercel.app)`);
+  if (process.env.FRONTEND_URL) {
+    console.log(`   - Frontend URL: ${process.env.FRONTEND_URL}`);
+  }
 });
