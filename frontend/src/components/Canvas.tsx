@@ -502,7 +502,7 @@ export function Canvas() {
   };
 
   return (
-    <div ref={containerRef} className="w-full h-full relative">
+    <div ref={containerRef} className="w-full h-full relative overflow-hidden">
       <canvas
         ref={canvasRef}
         width={dimensions.width}
@@ -544,6 +544,8 @@ export function Canvas() {
             onCancel={() => setTextInputPosition(null)}
             fontSize={fontSize}
             color={penColor}
+            containerWidth={dimensions.width}
+            containerHeight={dimensions.height}
           />
         )}
       </AnimatePresence>

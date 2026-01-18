@@ -57,15 +57,15 @@ export function ChatPanel({
           transition={{ duration: 0.2 }}
           className="fixed left-2 right-2 top-16 z-40 sm:left-auto sm:right-4 sm:w-[360px]"
         >
-          <div className="bg-[var(--surface)]/95 border border-[var(--border)] rounded-2xl shadow-2xl backdrop-blur flex flex-col h-[70vh] max-h-[520px]">
-            <div className="px-4 py-3 border-b border-[var(--border)] flex items-center justify-between">
+          <div className="bg-(--surface)/95 border border-(--border) rounded-2xl shadow-2xl backdrop-blur flex flex-col h-[70vh] max-h-[520px]">
+            <div className="px-4 py-3 border-b border-(--border) flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[var(--primary)] shadow-[0_0_8px_rgba(78,205,196,0.45)]" />
+                <span className="w-2.5 h-2.5 rounded-full bg-(--primary) shadow-[0_0_8px_rgba(78,205,196,0.45)]" />
                 <span className="text-sm font-semibold">Room Chat</span>
               </div>
               <button
                 onClick={onClose}
-                className="text-[var(--text-muted)] hover:text-white transition-colors"
+                className="text-(--text-muted) hover:text-white transition-colors"
                 aria-label="Close chat"
               >
                 <svg
@@ -86,7 +86,7 @@ export function ChatPanel({
 
             <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
               {messages.length === 0 ? (
-                <div className="text-sm text-[var(--text-muted)]">
+                <div className="text-sm text-(--text-muted)">
                   No messages yet. Say hello.
                 </div>
               ) : (
@@ -100,13 +100,13 @@ export function ChatPanel({
                       <div
                         className={`max-w-[82%] rounded-2xl px-3 py-2 text-sm leading-relaxed ${
                           isOwn
-                            ? "bg-[var(--primary)] text-black"
-                            : "bg-[var(--background)] border border-[var(--border)]"
+                            ? "bg-(--primary) text-black"
+                            : "bg-(--background) border border-(--border)"
                         }`}
                       >
                         <div
                           className={`mb-1 flex items-center gap-2 text-xs ${
-                            isOwn ? "text-black/70" : "text-[var(--text-muted)]"
+                            isOwn ? "text-black/70" : "text-(--text-muted)"
                           }`}
                         >
                           <span
@@ -119,7 +119,7 @@ export function ChatPanel({
                             {formatTime(message.timestamp)}
                           </span>
                         </div>
-                        <div className="whitespace-pre-wrap break-words">
+                        <div className="whitespace-pre-wrap wrap-break-word">
                           {message.content}
                         </div>
                       </div>
@@ -132,7 +132,7 @@ export function ChatPanel({
 
             <form
               onSubmit={handleSubmit}
-              className="p-3 border-t border-[var(--border)] flex items-center gap-2"
+              className="p-3 border-t border-(--border) flex items-center gap-2"
             >
               <input
                 ref={inputRef}
@@ -140,12 +140,12 @@ export function ChatPanel({
                 onChange={(event) => setDraft(event.target.value)}
                 placeholder="Message the room..."
                 maxLength={500}
-                className="flex-1 bg-[var(--background)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[var(--primary)] transition-colors"
+                className="flex-1 bg-(--background) border border-(--border) rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-(--primary) transition-colors"
               />
               <button
                 type="submit"
                 disabled={!draft.trim()}
-                className="px-3 py-2 bg-[var(--primary)] hover:bg-[var(--primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed text-black text-sm font-medium rounded-lg transition-colors"
+                className="px-3 py-2 bg-(--primary) hover:bg-(--primary-hover) disabled:opacity-50 disabled:cursor-not-allowed text-black text-sm font-medium rounded-lg transition-colors"
               >
                 Send
               </button>
