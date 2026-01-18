@@ -1,4 +1,4 @@
-import { Room, WhiteboardState, Stroke, TextItem, User } from '../types';
+import { Room, WhiteboardState, Stroke, TextItem, User, ChatMessage } from '../types';
 
 // In-memory room storage
 const rooms = new Map<string, Room>();
@@ -9,6 +9,7 @@ const USER_COLORS = [
   '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F',
   '#BB8FCE', '#85C1E9', '#F8B500', '#00CED1'
 ];
+const MAX_CHAT_MESSAGES = 200;
 
 function getRandomColor(): string {
   return USER_COLORS[Math.floor(Math.random() * USER_COLORS.length)];
@@ -18,7 +19,8 @@ function createEmptyState(): WhiteboardState {
   return {
     strokes: {},
     texts: {},
-    users: {}
+    users: {},
+    messages: []
   };
 }
 
@@ -130,6 +132,16 @@ export function clearBoard(roomId: string, userId: string): boolean {
   
   room.state.strokes = {};
   room.state.texts = {};
+  return true;
+}
+
+export function addChatMessage(roomId: string, message: ChatMessage): boolean {
+  const room = rooms.get(roomId);
+  if (!room) return false;
+  room.state.messages.push(message);
+  if (room.state.messages.length > MAX_CHAT_MESSAGES) {
+    room.state.messages = room.state.messages.slice(-MAX_CHAT_MESSAGES);
+  }
   return true;
 }
 

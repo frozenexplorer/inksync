@@ -8,10 +8,11 @@ import { connectSocket, disconnectSocket, getSocket } from "@/lib/socket";
 import { Canvas } from "@/components/Canvas";
 import { Toolbar } from "@/components/Toolbar";
 import { PresenceBar } from "@/components/PresenceBar";
+import { ChatPanel } from "@/components/ChatPanel";
 import { ShareModal } from "@/components/ShareModal";
 import { JoinPromptModal } from "@/components/JoinPromptModal";
 import { ToastContainer, useToasts } from "@/components/Toast";
-import { RoomStatePayload, Stroke, TextItem, User, CursorPosition, RoomErrorPayload } from "@/lib/types";
+import { RoomStatePayload, Stroke, TextItem, User, CursorPosition, RoomErrorPayload, ChatMessage } from "@/lib/types";
 
 export default function RoomPage() {
   const params = useParams();
@@ -27,10 +28,14 @@ export default function RoomPage() {
     }
     return false;
   });
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [hasUnread, setHasUnread] = useState(false);
   const { toasts, addToast, removeToast } = useToasts();
   const addToastRef = useRef(addToast);
   const hasInitialized = useRef(false);
   const isCreatingRef = useRef(isCreating);
+  const isChatOpenRef = useRef(isChatOpen);
+  const userIdRef = useRef<string | null>(null);
   
   // Update ref in effect to avoid updating during render
   useEffect(() => {
@@ -39,7 +44,9 @@ export default function RoomPage() {
   
   const {
     isConnected,
+    userId,
     userName,
+    messages,
     setConnected,
     setRoomId,
     setUserInfo,
@@ -48,6 +55,7 @@ export default function RoomPage() {
     addStroke,
     removeStrokes,
     addText,
+    addMessage,
     clearBoard,
     addUser,
     removeUser,
@@ -56,6 +64,20 @@ export default function RoomPage() {
     removeRemoteCursor,
     reset,
   } = useWhiteboardStore();
+
+  const addMessageRef = useRef(addMessage);
+
+  useEffect(() => {
+    addMessageRef.current = addMessage;
+  }, [addMessage]);
+
+  useEffect(() => {
+    isChatOpenRef.current = isChatOpen;
+  }, [isChatOpen]);
+
+  useEffect(() => {
+    userIdRef.current = userId;
+  }, [userId]);
 
   const setupSocketListeners = useCallback(() => {
     const socket = getSocket();
@@ -68,6 +90,7 @@ export default function RoomPage() {
     socket.off("stroke:added");
     socket.off("strokes:erased");
     socket.off("text:added");
+    socket.off("chat:new");
     socket.off("board:cleared");
     socket.off("user:joined");
     socket.off("user:left");
@@ -111,6 +134,7 @@ export default function RoomPage() {
     socket.on("room:state", (payload: RoomStatePayload) => {
       setUserInfo(payload.userId, payload.role, payload.userColor);
       hydrateState(payload.state);
+      setHasUnread(false);
     });
 
     socket.on("stroke:added", (stroke: Stroke) => {
@@ -123,6 +147,13 @@ export default function RoomPage() {
 
     socket.on("text:added", (text: TextItem) => {
       addText(text);
+    });
+
+    socket.on("chat:new", (message: ChatMessage) => {
+      addMessageRef.current(message);
+      if (!isChatOpenRef.current && message.userId !== userIdRef.current) {
+        setHasUnread(true);
+      }
     });
 
     socket.on("board:cleared", () => {
@@ -223,6 +254,22 @@ export default function RoomPage() {
     router.push("/");
   };
 
+  const handleToggleChat = () => {
+    setIsChatOpen((prev) => {
+      const next = !prev;
+      if (next) {
+        setHasUnread(false);
+      }
+      return next;
+    });
+  };
+
+  const handleSendChat = (content: string) => {
+    const socket = getSocket();
+    if (!socket.connected) return;
+    socket.emit("chat:send", { content });
+  };
+
   // Show join prompt if user doesn't have a name
   if (showJoinPrompt) {
     return (
@@ -269,6 +316,30 @@ export default function RoomPage() {
           {/* Presence */}
           <PresenceBar />
 
+          {/* Chat toggle */}
+          <button
+            onClick={handleToggleChat}
+            aria-label={isChatOpen ? "Close chat" : "Open chat"}
+            aria-pressed={isChatOpen}
+            className={`relative w-9 h-9 rounded-lg border border-[var(--border)] flex items-center justify-center transition-colors ${
+              isChatOpen
+                ? "bg-[var(--primary)] text-black"
+                : "bg-[var(--surface-hover)] hover:bg-[var(--primary)] hover:text-black"
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 10h8M8 14h4m-6 6h8a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12l4-4z"
+              />
+            </svg>
+            {hasUnread && !isChatOpen && (
+              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[var(--secondary)] ring-2 ring-[var(--surface)]" />
+            )}
+          </button>
+
           {/* Share button */}
           <button
             onClick={() => setShowShareModal(true)}
@@ -300,6 +371,14 @@ export default function RoomPage() {
         <Canvas />
         <Toolbar />
       </div>
+
+      <ChatPanel
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        onSend={handleSendChat}
+        messages={messages}
+        userId={userId}
+      />
 
       {/* Share Modal */}
       <ShareModal 

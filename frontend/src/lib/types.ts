@@ -29,10 +29,20 @@ export interface User {
   name: string;
 }
 
+export interface ChatMessage {
+  id: string;
+  userId: string;
+  userName: string;
+  userColor: string;
+  content: string;
+  timestamp: number;
+}
+
 export interface WhiteboardState {
   strokes: Record<string, Stroke>;
   texts: Record<string, TextItem>;
   users: Record<string, User>;
+  messages: ChatMessage[];
 }
 
 export type Tool = 'pen' | 'eraser' | 'text';

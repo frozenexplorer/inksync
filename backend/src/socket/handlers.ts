@@ -6,10 +6,11 @@ import {
   addStroke, 
   removeStrokes,
   addText,
+  addChatMessage,
   clearBoard,
   getNewHostId
 } from '../rooms/manager';
-import { Stroke, TextItem, JoinRoomPayload, CursorUpdate, Point } from '../types';
+import { Stroke, TextItem, JoinRoomPayload, CursorUpdate, Point, ChatMessage } from '../types';
 
 interface SocketData {
   userId: string;
@@ -94,6 +95,34 @@ export function setupSocketHandlers(io: Server) {
       
       if (addText(roomId, text)) {
         io.to(roomId).emit('text:added', text);
+      }
+    });
+
+    // Chat message sent
+    socket.on('chat:send', (payload: { content: string }) => {
+      if (!socketData) return;
+      const { roomId, userId } = socketData;
+
+      const room = getRoom(roomId);
+      if (!room) return;
+
+      const user = room.state.users[userId];
+      if (!user) return;
+
+      const trimmed = (payload?.content || '').trim();
+      if (!trimmed) return;
+
+      const message: ChatMessage = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        userId,
+        userName: user.name,
+        userColor: user.color,
+        content: trimmed.slice(0, 500),
+        timestamp: Date.now(),
+      };
+
+      if (addChatMessage(roomId, message)) {
+        io.to(roomId).emit('chat:new', message);
       }
     });
 
