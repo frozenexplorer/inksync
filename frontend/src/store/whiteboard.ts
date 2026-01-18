@@ -169,9 +169,10 @@ export const useWhiteboardStore = create<WhiteboardStore>((set, get) => ({
     texts: { ...state.texts, [text.id]: text }
   })),
 
-  updateText: (text) => set((state) => ({
-    texts: { ...state.texts, [text.id]: text }
-  })),
+  updateText: (text) => set((state) => {
+    if (!state.texts[text.id]) return state;
+      return { texts: { ...state.texts, [text.id]: text } };
+  }),
 
   removeText: (textId) => set((state) => {
     const nextTexts = { ...state.texts };
