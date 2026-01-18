@@ -2,8 +2,14 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { useWhiteboardStore } from "@/store/whiteboard";
+import { Point } from "@/lib/types";
 
-export function CursorTooltips() {
+interface CursorTooltipsProps {
+  offset: Point;
+  zoom: number;
+}
+
+export function CursorTooltips({ offset, zoom }: CursorTooltipsProps) {
   const { remoteCursors, userId, showCursorCount } = useWhiteboardStore();
   
   // Filter out own cursor
@@ -48,8 +54,8 @@ export function CursorTooltips() {
             }}
             className="absolute"
             style={{ 
-              left: cursor.position.x,
-              top: cursor.position.y,
+              left: cursor.position.x * zoom + offset.x,
+              top: cursor.position.y * zoom + offset.y,
               willChange: "left, top, opacity"
             }}
           >

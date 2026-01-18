@@ -47,7 +47,7 @@ export interface WhiteboardState {
   messages: ChatMessage[];
 }
 
-export type Tool = 'pen' | 'eraser' | 'text';
+export type Tool = 'pen' | 'eraser' | 'text' | 'pan';
 
 export type EraserMode = 'stroke' | 'pixel';
 
