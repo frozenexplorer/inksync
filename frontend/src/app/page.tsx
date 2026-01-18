@@ -234,7 +234,7 @@ function Typewriter({
       <span className="whitespace-nowrap">{text}</span>
       {cursor && (
         <motion.span
-          className="ml-1 inline-block w-[10px] h-[1.15em] align-bottom rounded-sm bg-[var(--primary)]/80"
+          className="ml-1 inline-block w-[10px] h-[1.15em] align-bottom rounded-sm bg-(--primary)/80"
           animate={{ opacity: [1, 0, 1] }}
           transition={{ duration: 0.9, repeat: Infinity, ease: "easeInOut" }}
         />
@@ -349,30 +349,41 @@ export default function Home() {
     setErrorMessage(null);
 
     try {
-      const response = await fetch(`${API_URL}/api/rooms/${cleanRoomId}`);
-
-      if (!response.ok) {
-        setErrorMessage(`Server error: ${response.status} ${response.statusText}`);
-        setIsLoading(false);
-        return;
-      }
-
-      const data = await response.json();
-
-      if (!data?.exists) {
-        setErrorMessage(`Room "${cleanRoomId}" doesn't exist`);
-        setIsLoading(false);
-        return;
-      }
-
+      // Store username in sessionStorage
+      sessionStorage.setItem("userName", displayName);
+      
+      // Try to validate room exists via REST API (optional check)
+      // If this fails (CORS, network, etc.), we still allow navigation
+      // and let the socket handler validate on connection
       try {
-        sessionStorage.setItem("userName", displayName);
-      } catch {
-        // ignore
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+        
+        const response = await fetch(`${API_URL}/api/rooms/${cleanRoomId}`, {
+          signal: controller.signal,
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data?.exists === false) {
+            setErrorMessage(`Room "${cleanRoomId}" doesn't exist`);
+            setIsLoading(false);
+            return;
+          }
+        }
+        // If response is not ok, continue anyway - socket will validate
+      } catch (apiError) {
+        // API check failed (CORS, network, timeout, etc.)
+        // This is OK - we'll let socket handler validate instead
+        console.log('Room validation API check failed, will validate via socket:', apiError);
       }
-
+      
+      // Navigate to room - socket handler will validate if API check didn't work
       router.push(`/room/${cleanRoomId}`);
-    } catch {
+    } catch (error) {
+      console.log("Error in handleJoinRoom:", error);
       setErrorMessage("Unable to connect to server. Please try again.");
       setIsLoading(false);
     }
