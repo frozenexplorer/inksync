@@ -256,6 +256,7 @@ export default function Home() {
 
   const [activeTab, setActiveTab] = useState<RightTab>("guide");
   const [rightOpen, setRightOpen] = useState(true);
+  const [isNavOpen, setIsNavOpen] = useState(false);
 
   // Platform + origin
   const [isMac, setIsMac] = useState(false);
@@ -286,6 +287,12 @@ export default function Home() {
       // ignore
     }
   }, []);
+
+  useEffect(() => {
+    if (isDesktop) {
+      setIsNavOpen(false);
+    }
+  }, [isDesktop]);
 
   // Prefill name from Clerk or sessionStorage (CORE LOGIC UNCHANGED)
   useEffect(() => {
@@ -501,75 +508,221 @@ export default function Home() {
         </div>
 
         {/* Right: actions + auth */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          <IconButton onClick={() => openRight("guide")} label="Open guide" pressed={rightOpen && activeTab === "guide"}>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M12 14a4 4 0 10-4-4" />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v14a2 2 0 01-2 2z"
-              />
-            </svg>
-          </IconButton>
+        <div className="relative flex items-center gap-2 sm:gap-3">
+          <div className="hidden lg:flex items-center gap-2 sm:gap-3">
+            <IconButton onClick={() => openRight("guide")} label="Open guide" pressed={rightOpen && activeTab === "guide"}>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M12 14a4 4 0 10-4-4" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v14a2 2 0 01-2 2z"
+                />
+              </svg>
+            </IconButton>
 
-          <IconButton onClick={() => openRight("share")} label="Open share" pressed={rightOpen && activeTab === "share"}>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M16 6.5a3 3 0 105.367-2.684A3 3 0 0016 6.5zm0 11a3 3 0 105.368 2.684A3 3 0 0016 17.5z"
-              />
-            </svg>
-          </IconButton>
+            <IconButton onClick={() => openRight("share")} label="Open share" pressed={rightOpen && activeTab === "share"}>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M16 6.5a3 3 0 105.367-2.684A3 3 0 0016 6.5zm0 11a3 3 0 105.368 2.684A3 3 0 0016 17.5z"
+                />
+              </svg>
+            </IconButton>
 
-          <IconButton
-            onClick={() => openRight("shortcuts")}
-            label="Open shortcuts"
-            pressed={rightOpen && activeTab === "shortcuts"}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-          </IconButton>
+            <IconButton
+              onClick={() => openRight("shortcuts")}
+              label="Open shortcuts"
+              pressed={rightOpen && activeTab === "shortcuts"}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </IconButton>
 
-          {/* Auth (Clerk unchanged) */}
-          {isSignedIn ? (
-            <div className="flex items-center gap-2 border-l border-(--border) pl-3">
-              <div className="hidden md:flex items-center gap-2 text-sm text-(--text-muted)">
-                <div className="w-8 h-8 rounded-full border border-(--border) flex items-center justify-center text-xs font-semibold bg-(--surface-hover)/70">
-                  {initials(user?.firstName || user?.username || "User")}
+            {/* Auth (Clerk unchanged) */}
+            {isSignedIn ? (
+              <div className="flex items-center gap-2 border-l border-(--border) pl-3">
+                <div className="hidden md:flex items-center gap-2 text-sm text-(--text-muted)">
+                  <div className="w-8 h-8 rounded-full border border-(--border) flex items-center justify-center text-xs font-semibold bg-(--surface-hover)/70">
+                    {initials(user?.firstName || user?.username || "User")}
+                  </div>
+                  <div className="flex flex-col leading-tight">
+                    <span className="text-xs font-medium text-(--text)">{user?.firstName || user?.username || "User"}</span>
+                    <span className="text-[10px] text-(--text-muted)">Signed in</span>
+                  </div>
                 </div>
-                <div className="flex flex-col leading-tight">
-                  <span className="text-xs font-medium text-(--text)">{user?.firstName || user?.username || "User"}</span>
-                  <span className="text-[10px] text-(--text-muted)">Signed in</span>
-                </div>
+                <UserButton />
               </div>
-              <UserButton />
-            </div>
-          ) : (
-            <>
-              <SignInButton mode="modal">
-                <button className="px-3 py-1.5 text-sm font-medium text-(--text-muted) hover:text-(--text) transition-colors">
-                  Sign in
-                </button>
-              </SignInButton>
-              <SignUpButton mode="modal">
-                <button className="px-3 py-1.5 text-sm font-semibold bg-(--primary) hover:bg-(--primary-hover) text-black rounded-xl transition-colors shadow-sm">
-                  Sign up free
-                </button>
-              </SignUpButton>
-            </>
-          )}
+            ) : (
+              <>
+                <SignInButton mode="modal">
+                  <button className="px-3 py-1.5 text-sm font-medium text-(--text-muted) hover:text-(--text) transition-colors">
+                    Sign in
+                  </button>
+                </SignInButton>
+                <SignUpButton mode="modal">
+                  <button className="px-3 py-1.5 text-sm font-semibold bg-(--primary) hover:bg-(--primary-hover) text-black rounded-xl transition-colors shadow-sm">
+                    Sign up free
+                  </button>
+                </SignUpButton>
+              </>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsNavOpen((prev) => !prev)}
+            aria-label="Toggle navigation"
+            aria-expanded={isNavOpen}
+            className={cx(
+              "lg:hidden w-10 h-10 rounded-xl border border-(--border) flex items-center justify-center transition-all",
+              "bg-(--surface)/70 backdrop-blur-xl hover:bg-(--surface-hover)/80"
+            )}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {isNavOpen ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              )}
+            </svg>
+          </button>
+
         </div>
+
+        <AnimatePresence>
+          {isNavOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -8, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -8, scale: 0.98 }}
+              transition={{ duration: 0.2 }}
+              className="absolute left-3 right-3 top-[calc(100%+8px)] rounded-2xl border border-(--border) bg-(--surface)/95 backdrop-blur-xl p-3 shadow-2xl z-40 lg:hidden sm:left-5 sm:right-5"
+            >
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => {
+                    openRight("guide");
+                    setIsNavOpen(false);
+                  }}
+                  aria-pressed={rightOpen && activeTab === "guide"}
+                  className={cx(
+                    "flex w-full items-center gap-3 rounded-xl border border-(--border) px-3 py-2 text-left text-sm transition-colors",
+                    rightOpen && activeTab === "guide"
+                      ? "bg-(--primary) text-black"
+                      : "bg-(--surface-hover)/50 text-(--text) hover:bg-(--surface-hover)"
+                  )}
+                >
+                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M12 14a4 4 0 10-4-4" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v14a2 2 0 01-2 2z"
+                    />
+                  </svg>
+                  <span>Guide</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    openRight("share");
+                    setIsNavOpen(false);
+                  }}
+                  aria-pressed={rightOpen && activeTab === "share"}
+                  className={cx(
+                    "flex w-full items-center gap-3 rounded-xl border border-(--border) px-3 py-2 text-left text-sm transition-colors",
+                    rightOpen && activeTab === "share"
+                      ? "bg-(--primary) text-black"
+                      : "bg-(--surface-hover)/50 text-(--text) hover:bg-(--surface-hover)"
+                  )}
+                >
+                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M16 6.5a3 3 0 105.367-2.684A3 3 0 0016 6.5zm0 11a3 3 0 105.368 2.684A3 3 0 0016 17.5z"
+                    />
+                  </svg>
+                  <span>Share</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    openRight("shortcuts");
+                    setIsNavOpen(false);
+                  }}
+                  aria-pressed={rightOpen && activeTab === "shortcuts"}
+                  className={cx(
+                    "flex w-full items-center gap-3 rounded-xl border border-(--border) px-3 py-2 text-left text-sm transition-colors",
+                    rightOpen && activeTab === "shortcuts"
+                      ? "bg-(--primary) text-black"
+                      : "bg-(--surface-hover)/50 text-(--text) hover:bg-(--surface-hover)"
+                  )}
+                >
+                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  <span>Shortcuts</span>
+                </button>
+              </div>
+
+              <div className="my-3 h-px bg-(--border)" />
+
+              {isSignedIn ? (
+                <div className="flex items-center justify-between rounded-xl border border-(--border) bg-(--surface-hover)/40 px-3 py-2">
+                  <div className="flex items-center gap-3 text-sm text-(--text-muted)">
+                    <div className="w-8 h-8 rounded-full border border-(--border) flex items-center justify-center text-xs font-semibold bg-(--surface-hover)/70">
+                      {initials(user?.firstName || user?.username || "User")}
+                    </div>
+                    <div className="flex flex-col leading-tight">
+                      <span className="text-xs font-medium text-(--text)">{user?.firstName || user?.username || "User"}</span>
+                      <span className="text-[10px] text-(--text-muted)">Signed in</span>
+                    </div>
+                  </div>
+                  <UserButton />
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <SignInButton mode="modal">
+                    <button
+                      onClick={() => setIsNavOpen(false)}
+                      className="w-full px-3 py-2 text-sm font-medium text-(--text-muted) hover:text-(--text) transition-colors rounded-xl border border-(--border) bg-(--surface-hover)/50"
+                    >
+                      Sign in
+                    </button>
+                  </SignInButton>
+                  <SignUpButton mode="modal">
+                    <button
+                      onClick={() => setIsNavOpen(false)}
+                      className="w-full px-3 py-2 text-sm font-semibold bg-(--primary) hover:bg-(--primary-hover) text-black rounded-xl transition-colors shadow-sm"
+                    >
+                      Sign up free
+                    </button>
+                  </SignUpButton>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.header>
 
       {/* Main */}
