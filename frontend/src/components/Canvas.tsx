@@ -5,7 +5,7 @@ import { AnimatePresence } from "framer-motion";
 import { useWhiteboardStore } from "@/store/whiteboard";
 import { getSocket } from "@/lib/socket";
 import { nanoid } from "nanoid";
-import { Point, Stroke, TextItem } from "@/lib/types";
+import { Point, Stroke, TextItem, Tool } from "@/lib/types";
 import { clampTextSize, DEFAULT_TEXT_FONT_FAMILY } from "@/lib/typography";
 import { TextOverlay } from "./TextOverlay";
 import { CursorTooltips } from "./CursorTooltips";
@@ -41,15 +41,26 @@ const rotatePoint = (point: Point, radians: number): Point => ({
 });
 
 const TRANSFORM_EMIT_INTERVAL_MS = 33;
+const ZOOM_MIN = 0.25;
+const ZOOM_MAX = 3;
+const ZOOM_STEP = 0.1;
 
 export function Canvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  const [panOffset, setPanOffset] = useState<Point>({ x: 0, y: 0 });
+  const panOffsetRef = useRef(panOffset);
+  const [zoom, setZoom] = useState(1);
+  const zoomRef = useRef(1);
+  const [isPanning, setIsPanning] = useState(false);
   const [eraserCursor, setEraserCursor] = useState<Point | null>(null);
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
   const [hoveredTextId, setHoveredTextId] = useState<string | null>(null);
   const isDrawing = useRef(false);
+  const isPanningRef = useRef(false);
+  const panStartRef = useRef<{ origin: Point; offset: Point; pointerId: number } | null>(null);
+  const lastNonPanToolRef = useRef<Tool>("pen");
   const transformRef = useRef<TransformState | null>(null);
   const lastPoint = useRef<Point | null>(null);
   const lastCursorEmit = useRef(0);
@@ -71,6 +82,7 @@ export function Canvas() {
     startStroke,
     extendStroke,
     finishStroke,
+    setTool,
     setTextInputPosition,
     removeStrokes,
     applyStrokeChanges,
@@ -90,6 +102,20 @@ export function Canvas() {
   useEffect(() => {
     updateTextRef.current = updateText;
   }, [updateText]);
+
+  useEffect(() => {
+    panOffsetRef.current = panOffset;
+  }, [panOffset]);
+
+  useEffect(() => {
+    zoomRef.current = zoom;
+  }, [zoom]);
+
+  useEffect(() => {
+    if (tool !== "pan") {
+      lastNonPanToolRef.current = tool;
+    }
+  }, [tool]);
 
   // Resize handler using ResizeObserver for reliable dimension updates
   useEffect(() => {
@@ -200,8 +226,10 @@ export function Canvas() {
     if (canvas.width === 0 || canvas.height === 0) return;
 
     // Clear canvas with white background
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.setTransform(zoom, 0, 0, zoom, panOffset.x, panOffset.y);
 
     // Draw all finalized strokes
     Object.values(strokes).forEach((stroke) => {
@@ -242,6 +270,8 @@ export function Canvas() {
     textInputPosition,
     hoveredTextId,
     selectedTextId,
+    panOffset,
+    zoom,
     drawStroke,
     drawText,
     drawHoverHighlight,
@@ -255,7 +285,7 @@ export function Canvas() {
   }, [draw, dimensions]);
 
   useEffect(() => {
-    if (tool === "eraser") {
+    if (tool === "eraser" || tool === "pan") {
       setSelectedTextId(null);
       setHoveredTextId(null);
     }
@@ -391,13 +421,23 @@ export function Canvas() {
     };
   }, []);
 
+  const toWorldPoint = useCallback((point: Point): Point => {
+    const currentZoom = zoomRef.current || 1;
+    return {
+      x: (point.x - panOffsetRef.current.x) / currentZoom,
+      y: (point.y - panOffsetRef.current.y) / currentZoom,
+    };
+  }, []);
+
   const getPointerPosition = (e: React.PointerEvent): Point => {
-    return getPointFromClient(e.clientX, e.clientY);
+    const screenPoint = getPointFromClient(e.clientX, e.clientY);
+    return toWorldPoint(screenPoint);
   };
 
   const getWindowPointerPosition = useCallback((event: PointerEvent): Point => {
-    return getPointFromClient(event.clientX, event.clientY);
-  }, [getPointFromClient]);
+    const screenPoint = getPointFromClient(event.clientX, event.clientY);
+    return toWorldPoint(screenPoint);
+  }, [getPointFromClient, toWorldPoint]);
 
   useEffect(() => {
     const handleDoubleClick = (event: MouseEvent) => {
@@ -413,7 +453,8 @@ export function Canvas() {
         return;
       }
 
-      const point = getPointFromClient(event.clientX, event.clientY);
+      const screenPoint = getPointFromClient(event.clientX, event.clientY);
+      const point = toWorldPoint(screenPoint);
       const hitTextId = findTextAtPoint(point);
       if (!hitTextId) {
         stopTransformRef.current();
@@ -424,7 +465,7 @@ export function Canvas() {
 
     window.addEventListener("dblclick", handleDoubleClick);
     return () => window.removeEventListener("dblclick", handleDoubleClick);
-  }, [findTextAtPoint, getPointFromClient, selectedTextId, hoveredTextId, textInputPosition]);
+  }, [findTextAtPoint, getPointFromClient, toWorldPoint, selectedTextId, hoveredTextId, textInputPosition]);
 
   // Emit cursor position (throttled to ~30fps)
   const emitCursorPosition = useCallback((point: Point, isActive: boolean) => {
@@ -789,7 +830,26 @@ export function Canvas() {
     // Don't handle if text input is already open
     if (textInputPosition) return;
     
-    const point = getPointerPosition(e);
+    const screenPoint = getPointFromClient(e.clientX, e.clientY);
+    const point = toWorldPoint(screenPoint);
+    const shouldPan = e.button === 1 || (tool === "pan" && e.button === 0);
+
+    if (shouldPan) {
+      e.preventDefault();
+      setHoveredTextId(null);
+      setEraserCursor(null);
+      isDrawing.current = false;
+      lastPoint.current = null;
+      panStartRef.current = {
+        origin: screenPoint,
+        offset: panOffsetRef.current,
+        pointerId: e.pointerId,
+      };
+      isPanningRef.current = true;
+      setIsPanning(true);
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      return;
+    }
 
     if (tool === "pen") {
       const hitTextId = findTextAtPoint(point);
@@ -828,11 +888,26 @@ export function Canvas() {
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
-    const point = getPointerPosition(e);
+    const screenPoint = getPointFromClient(e.clientX, e.clientY);
+    const point = toWorldPoint(screenPoint);
+
+    if (isPanningRef.current) {
+      const panStart = panStartRef.current;
+      if (!panStart) return;
+      const dx = screenPoint.x - panStart.origin.x;
+      const dy = screenPoint.y - panStart.origin.y;
+      const nextOffset = {
+        x: panStart.offset.x + dx,
+        y: panStart.offset.y + dy,
+      };
+      panOffsetRef.current = nextOffset;
+      setPanOffset(nextOffset);
+      return;
+    }
     
     // Update eraser cursor position for visual indicator
     if (tool === "eraser") {
-      setEraserCursor(point);
+      setEraserCursor(screenPoint);
     }
     
     if (!isDrawing.current) {
@@ -860,6 +935,9 @@ export function Canvas() {
   const handlePointerLeaveCanvas = (e: React.PointerEvent) => {
     setEraserCursor(null);
     setHoveredTextId(null);
+    if (isPanningRef.current) {
+      return;
+    }
     if (isDrawing.current) {
       const point = getPointerPosition(e);
       isDrawing.current = false;
@@ -883,6 +961,16 @@ export function Canvas() {
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
+    if (isPanningRef.current) {
+      const panStart = panStartRef.current;
+      isPanningRef.current = false;
+      panStartRef.current = null;
+      setIsPanning(false);
+      if (panStart) {
+        (e.target as HTMLElement).releasePointerCapture(panStart.pointerId);
+      }
+      return;
+    }
     if (!isDrawing.current) return;
     
     const point = getPointerPosition(e);
@@ -954,6 +1042,16 @@ export function Canvas() {
       rotation: selectedLayout.rotation,
     };
   }, [selectedLayout, selectedText]);
+  const selectionBoxScreen = useMemo(() => {
+    if (!selectionBox) return null;
+    return {
+      ...selectionBox,
+      left: selectionBox.left * zoom + panOffset.x,
+      top: selectionBox.top * zoom + panOffset.y,
+      width: selectionBox.width * zoom,
+      height: selectionBox.height * zoom,
+    };
+  }, [panOffset, selectionBox, zoom]);
 
   const resizeHandleSize = 10;
   const rotateHandleSize = 12;
@@ -996,6 +1094,14 @@ export function Canvas() {
     };
   }, [selectionHandles]);
 
+  const textOverlayPosition = useMemo(() => {
+    if (!textInputPosition) return null;
+    return {
+      x: textInputPosition.x * zoom + panOffset.x,
+      y: textInputPosition.y * zoom + panOffset.y,
+    };
+  }, [panOffset, textInputPosition, zoom]);
+
   const handleDeleteSelectedText = () => {
     if (!selectedText) return;
     removeText(selectedText.id);
@@ -1005,6 +1111,61 @@ export function Canvas() {
     if (socket.connected) {
       socket.emit("text:remove", selectedText.id);
     }
+  };
+
+  const clampZoom = (value: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, value));
+
+  const updateZoom = (nextZoom: number) => {
+    const currentZoom = zoomRef.current || 1;
+    const clampedZoom = clampZoom(nextZoom);
+    if (Math.abs(clampedZoom - currentZoom) < 0.001) return;
+
+    const anchor = {
+      x: dimensions.width / 2,
+      y: dimensions.height / 2,
+    };
+    const currentPan = panOffsetRef.current;
+    const worldAtAnchor = {
+      x: (anchor.x - currentPan.x) / currentZoom,
+      y: (anchor.y - currentPan.y) / currentZoom,
+    };
+    const nextPan = {
+      x: anchor.x - worldAtAnchor.x * clampedZoom,
+      y: anchor.y - worldAtAnchor.y * clampedZoom,
+    };
+
+    panOffsetRef.current = nextPan;
+    setPanOffset(nextPan);
+    zoomRef.current = clampedZoom;
+    setZoom(clampedZoom);
+  };
+
+  const handleTogglePan = () => {
+    if (tool === "pan") {
+      setTool(lastNonPanToolRef.current);
+      return;
+    }
+    setTool("pan");
+  };
+
+  const handleSwitchToPen = () => {
+    setTool("pen");
+  };
+
+  const handleZoomIn = () => {
+    updateZoom(zoomRef.current + ZOOM_STEP);
+  };
+
+  const handleZoomOut = () => {
+    updateZoom(zoomRef.current - ZOOM_STEP);
+  };
+
+  const handleResetView = () => {
+    const resetPan = { x: 0, y: 0 };
+    panOffsetRef.current = resetPan;
+    setPanOffset(resetPan);
+    zoomRef.current = 1;
+    setZoom(1);
   };
 
   const handleResizeStart = (e: React.PointerEvent) => {
@@ -1092,10 +1253,17 @@ export function Canvas() {
         return "cursor-none"; // Hide default cursor, we'll show custom one
       case "text":
         return "cursor-text";
+      case "pan":
+        return "cursor-grab";
       default:
         return "";
     }
   };
+
+  const isViewCentered = panOffset.x === 0 && panOffset.y === 0 && zoom === 1;
+  const isZoomMin = zoom <= ZOOM_MIN + 0.001;
+  const isZoomMax = zoom >= ZOOM_MAX - 0.001;
+  const eraserScreenSize = Math.max(2, eraserSize * zoom);
 
   return (
     <div ref={containerRef} className="w-full h-full relative overflow-hidden">
@@ -1103,24 +1271,115 @@ export function Canvas() {
         ref={canvasRef}
         width={dimensions.width}
         height={dimensions.height}
-        className={`w-full h-full touch-none bg-white ${getCursorClass()}`}
+        className={`w-full h-full touch-none bg-white ${isPanning ? "cursor-grabbing" : getCursorClass()}`}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerLeaveCanvas}
       />
 
-      {tool !== "eraser" && !textInputPosition && selectedText && selectedLayout && selectionBox && (
+      <div className="absolute right-4 top-4 z-40 flex items-center gap-2 rounded-xl border border-(--border) bg-(--surface)/90 p-1.5 shadow-lg backdrop-blur">
+        <button
+          onClick={handleTogglePan}
+          aria-label="Toggle pan tool"
+          aria-pressed={tool === "pan"}
+          title="Pan tool (or hold middle mouse button)"
+          className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${
+            tool === "pan"
+              ? "bg-(--primary) text-black"
+              : "text-(--text-muted) hover:bg-(--surface-hover) hover:text-white"
+          }`}
+        >
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M7 11V5a1 1 0 112 0v6m2 0V4a1 1 0 112 0v7m2 0V6a1 1 0 112 0v5m2 0V9a1 1 0 112 0v6a4 4 0 01-4 4h-5a4 4 0 01-4-4v-1a2 2 0 012-2h2"
+            />
+          </svg>
+        </button>
+        <button
+          onClick={handleSwitchToPen}
+          aria-label="Select pen tool"
+          aria-pressed={tool === "pen"}
+          title="Pen tool"
+          className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${
+            tool === "pen"
+              ? "bg-(--primary) text-black"
+              : "text-(--text-muted) hover:bg-(--surface-hover) hover:text-white"
+          }`}
+        >
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+          </svg>
+        </button>
+      </div>
+
+      <div className="absolute bottom-4 right-4 z-40 flex items-center gap-2 rounded-xl border border-(--border) bg-(--surface)/90 px-2 py-1.5 shadow-lg backdrop-blur">
+        <button
+          onClick={handleZoomOut}
+          aria-label="Zoom out"
+          title="Zoom out"
+          disabled={isZoomMin}
+          className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
+            isZoomMin
+              ? "cursor-not-allowed opacity-50 text-(--text-muted)"
+              : "text-(--text-muted) hover:bg-(--surface-hover) hover:text-white"
+          }`}
+        >
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14" />
+          </svg>
+        </button>
+        <span className="min-w-[46px] text-center text-xs font-semibold text-(--text-muted)">
+          {Math.round(zoom * 100)}%
+        </span>
+        <button
+          onClick={handleZoomIn}
+          aria-label="Zoom in"
+          title="Zoom in"
+          disabled={isZoomMax}
+          className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
+            isZoomMax
+              ? "cursor-not-allowed opacity-50 text-(--text-muted)"
+              : "text-(--text-muted) hover:bg-(--surface-hover) hover:text-white"
+          }`}
+        >
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v14m-7-7h14" />
+          </svg>
+        </button>
+        <div className="h-6 w-px bg-(--border)" />
+        <button
+          onClick={handleResetView}
+          aria-label="Reset view"
+          title="Reset view"
+          disabled={isViewCentered}
+          className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
+            isViewCentered
+              ? "cursor-not-allowed opacity-50 text-(--text-muted)"
+              : "text-(--text-muted) hover:bg-(--surface-hover) hover:text-white"
+          }`}
+        >
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="3" strokeWidth={2} />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v4m0 8v4m8-8h-4M8 12H4" />
+          </svg>
+        </button>
+      </div>
+
+      {tool !== "eraser" && !textInputPosition && selectedText && selectedLayout && selectionBoxScreen && (
         <>
           <div className="pointer-events-none absolute inset-0">
             <div
               className="absolute"
               style={{
-                left: selectionBox.left,
-                top: selectionBox.top,
-                width: selectionBox.width,
-                height: selectionBox.height,
-                transform: `rotate(${selectionBox.rotation}deg)`,
+                left: selectionBoxScreen.left,
+                top: selectionBoxScreen.top,
+                width: selectionBoxScreen.width,
+                height: selectionBoxScreen.height,
+                transform: `rotate(${selectionBoxScreen.rotation}deg)`,
                 transformOrigin: "50% 50%",
               }}
             >
@@ -1133,11 +1392,11 @@ export function Canvas() {
             <div
               className="absolute"
               style={{
-                left: selectionBox.left,
-                top: selectionBox.top,
-                width: selectionBox.width,
-                height: selectionBox.height,
-                transform: `rotate(${selectionBox.rotation}deg)`,
+                left: selectionBoxScreen.left,
+                top: selectionBoxScreen.top,
+                width: selectionBoxScreen.width,
+                height: selectionBoxScreen.height,
+                transform: `rotate(${selectionBoxScreen.rotation}deg)`,
                 transformOrigin: "50% 50%",
               }}
             >
@@ -1156,9 +1415,9 @@ export function Canvas() {
                 <div
                   className="pointer-events-none absolute h-px bg-(--primary)"
                   style={{
-                    left: rotateLine.left,
-                    top: rotateLine.top,
-                    width: rotateLine.length,
+                    left: rotateLine.left * zoom + panOffset.x,
+                    top: rotateLine.top * zoom + panOffset.y,
+                    width: rotateLine.length * zoom,
                     transform: `rotate(${rotateLine.angle}rad)`,
                     transformOrigin: "0 0",
                   }}
@@ -1168,8 +1427,8 @@ export function Canvas() {
                 onPointerDown={handleRotateStart}
                 className="absolute rounded-full bg-white border border-(--primary) shadow cursor-grab pointer-events-auto"
                 style={{
-                  left: selectionHandles.rotate.x - rotateHandleSize / 2,
-                  top: selectionHandles.rotate.y - rotateHandleSize / 2,
+                  left: selectionHandles.rotate.x * zoom + panOffset.x - rotateHandleSize / 2,
+                  top: selectionHandles.rotate.y * zoom + panOffset.y - rotateHandleSize / 2,
                   width: rotateHandleSize,
                   height: rotateHandleSize,
                 }}
@@ -1181,8 +1440,8 @@ export function Canvas() {
                 onPointerDown={handleResizeStart}
                 className="absolute bg-white border border-(--primary) rounded-sm shadow cursor-nwse-resize pointer-events-auto"
                 style={{
-                  left: selectionHandles.resize.x - resizeHandleSize / 2,
-                  top: selectionHandles.resize.y - resizeHandleSize / 2,
+                  left: selectionHandles.resize.x * zoom + panOffset.x - resizeHandleSize / 2,
+                  top: selectionHandles.resize.y * zoom + panOffset.y - resizeHandleSize / 2,
                   width: resizeHandleSize,
                   height: resizeHandleSize,
                 }}
@@ -1202,9 +1461,9 @@ export function Canvas() {
           style={{
             left: 0,
             top: 0,
-            width: eraserSize,
-            height: eraserSize,
-            transform: `translate3d(${eraserCursor.x - eraserSize / 2}px, ${eraserCursor.y - eraserSize / 2}px, 0)`,
+            width: eraserScreenSize,
+            height: eraserScreenSize,
+            transform: `translate3d(${eraserCursor.x - eraserScreenSize / 2}px, ${eraserCursor.y - eraserScreenSize / 2}px, 0)`,
             borderColor: eraserMode === "stroke" ? "#ef4444" : "#f59e0b",
             backgroundColor: eraserMode === "stroke" ? "rgba(239, 68, 68, 0.1)" : "rgba(245, 158, 11, 0.1)",
             willChange: "transform",
@@ -1213,17 +1472,17 @@ export function Canvas() {
       )}
       
       {/* Remote cursor tooltips */}
-      <CursorTooltips />
+      <CursorTooltips offset={panOffset} zoom={zoom} />
       
       {/* Text input overlay */}
       <AnimatePresence>
-        {textInputPosition && (
+        {textOverlayPosition && (
           <TextOverlay
             key="text-overlay"
-            position={textInputPosition}
+            position={textOverlayPosition}
             onSubmit={handleTextSubmit}
             onCancel={() => setTextInputPosition(null)}
-            fontSize={fontSize}
+            fontSize={fontSize * zoom}
             color={penColor}
             containerWidth={dimensions.width}
             containerHeight={dimensions.height}
