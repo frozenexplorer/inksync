@@ -3,6 +3,7 @@
 import { useEffect, useCallback, useState, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
+import { UserButton, useUser } from "@clerk/nextjs";
 import { useWhiteboardStore } from "@/store/whiteboard";
 import { connectSocket, disconnectSocket, getSocket } from "@/lib/socket";
 import { Canvas } from "@/components/Canvas";
@@ -18,6 +19,7 @@ export default function RoomPage() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { isSignedIn, user } = useUser();
   const roomId = params.roomId as string;
   const isCreating = searchParams.get("create") === "true";
   const [showShareModal, setShowShareModal] = useState(false);
@@ -36,6 +38,7 @@ export default function RoomPage() {
   const isCreatingRef = useRef(isCreating);
   const isChatOpenRef = useRef(isChatOpen);
   const userIdRef = useRef<string | null>(null);
+  const clerkUserIdRef = useRef<string | null>(null);
   
   // Update ref in effect to avoid updating during render
   useEffect(() => {
@@ -81,6 +84,10 @@ export default function RoomPage() {
     userIdRef.current = userId;
   }, [userId]);
 
+  useEffect(() => {
+    clerkUserIdRef.current = user?.id || null;
+  }, [user?.id]);
+
   const setupSocketListeners = useCallback(() => {
     const socket = getSocket();
 
@@ -108,11 +115,12 @@ export default function RoomPage() {
       const storedName = sessionStorage.getItem("userName") || "Anonymous";
       setUserName(storedName);
       
-      // Join the room - pass isCreating flag
+      // Join the room - pass isCreating flag and Clerk user ID for persistence
       socket.emit("room:join", { 
         roomId, 
         userName: storedName, 
-        isCreating: isCreatingRef.current 
+        isCreating: isCreatingRef.current,
+        clerkUserId: clerkUserIdRef.current || undefined
       });
     });
 
@@ -365,9 +373,13 @@ export default function RoomPage() {
             <span className="hidden sm:inline">Share</span>
           </button>
 
-          {/* User name */}
+          {/* User info */}
           <div className="hidden md:flex items-center gap-2 text-sm text-[var(--text-muted)] border-l border-[var(--border)] pl-3">
-            <span>{userName}</span>
+            {isSignedIn ? (
+              <UserButton />
+            ) : (
+              <span>{userName}</span>
+            )}
           </div>
 
           {/* Leave button */}

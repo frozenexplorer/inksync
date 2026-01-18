@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { DEFAULT_TEXT_FONT_FAMILY } from "@/lib/typography";
 import { Point } from "@/lib/types";
@@ -12,12 +12,46 @@ interface TextOverlayProps {
   fontSize: number;
   color?: string;
   fontFamily?: string;
+  containerWidth?: number;
+  containerHeight?: number;
 }
 
-export function TextOverlay({ position, onSubmit, onCancel, fontSize, fontFamily }: TextOverlayProps) {
+const INPUT_MIN_WIDTH = 200;
+const INPUT_HEIGHT = 70; // Approximate height including hint text
+const EDGE_MARGIN = 16;
+
+export function TextOverlay({ position, onSubmit, onCancel, fontSize, containerWidth, containerHeight, fontFamily }: TextOverlayProps) {
   const [text, setText] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const isSubmitting = useRef(false);
+
+  // Calculate adjusted position based on container bounds
+  const { left, top, openLeft, openUp } = useMemo(() => {
+    const canvasWidth = containerWidth ?? 0;
+    const canvasHeight = containerHeight ?? 0;
+    
+    // Determine if we need to open to the left (click is near right edge)
+    const openLeft = canvasWidth > 0 && position.x + INPUT_MIN_WIDTH > canvasWidth - EDGE_MARGIN;
+    
+    // Determine if we need to open upward (click is near bottom edge)
+    const openUp = canvasHeight > 0 && position.y + INPUT_HEIGHT > canvasHeight - EDGE_MARGIN;
+    
+    // Calculate actual position
+    let left = position.x;
+    let top = position.y;
+    
+    if (openLeft) {
+      // Position so right edge is at click point
+      left = Math.max(EDGE_MARGIN, position.x - INPUT_MIN_WIDTH);
+    }
+    
+    if (openUp) {
+      // Position so bottom edge is at click point
+      top = Math.max(EDGE_MARGIN, position.y - INPUT_HEIGHT);
+    }
+
+    return { left, top, openLeft, openUp };
+  }, [position, containerWidth, containerHeight]);
   const resolvedFontFamily = fontFamily ?? DEFAULT_TEXT_FONT_FAMILY;
 
   useEffect(() => {
@@ -58,11 +92,16 @@ export function TextOverlay({ position, onSubmit, onCancel, fontSize, fontFamily
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.9 }}
+      initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.9 }}
-      className="absolute z-[100]"
-      style={{ left: position.x, top: position.y - fontSize / 2 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.1 }}
+      className="absolute z-50"
+      style={{ 
+        left,
+        top,
+        transformOrigin: `${openLeft ? "right" : "left"} ${openUp ? "bottom" : "top"}`,
+      }}
       onClick={(e) => e.stopPropagation()}
       onPointerDown={(e) => e.stopPropagation()}
     >
@@ -74,13 +113,13 @@ export function TextOverlay({ position, onSubmit, onCancel, fontSize, fontFamily
         onKeyDown={handleKeyDown}
         onBlur={handleBlur}
         placeholder="Type here..."
-        className="bg-white backdrop-blur-sm outline-none border-2 border-[var(--primary)] rounded px-2 py-1 min-w-[150px] shadow-lg text-black"
+        className="bg-white backdrop-blur-sm outline-none border-2 border-(--primary) rounded px-2 py-1 min-w-[150px] max-w-[200px] shadow-lg text-black"
         style={{ 
           fontSize: `${fontSize}px`, 
           fontFamily: resolvedFontFamily
         }}
       />
-      <div className="text-[10px] text-[var(--text-muted)] mt-1">
+      <div className={`text-[10px] text-(--text-muted) mt-1 ${openLeft ? "text-right" : ""}`}>
         Press Enter to confirm, Esc to cancel
       </div>
     </motion.div>

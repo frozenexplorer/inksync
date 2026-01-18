@@ -59,6 +59,7 @@ interface WhiteboardStore {
   hydrateState: (state: WhiteboardState) => void;
   addStroke: (stroke: Stroke) => void;
   removeStrokes: (strokeIds: string[]) => void;
+  applyStrokeChanges: (removeIds: string[], addStrokes: Stroke[]) => void;
   addText: (text: TextItem) => void;
   updateText: (text: TextItem) => void;
   removeText: (textId: string) => void;
@@ -146,6 +147,20 @@ export const useWhiteboardStore = create<WhiteboardStore>((set, get) => ({
     const newStrokes = { ...state.strokes };
     for (const id of strokeIds) {
       delete newStrokes[id];
+    }
+    return { strokes: newStrokes };
+  }),
+
+  applyStrokeChanges: (removeIds, addStrokes) => set((state) => {
+    if (removeIds.length === 0 && addStrokes.length === 0) {
+      return state;
+    }
+    const newStrokes = { ...state.strokes };
+    for (const id of removeIds) {
+      delete newStrokes[id];
+    }
+    for (const stroke of addStrokes) {
+      newStrokes[stroke.id] = stroke;
     }
     return { strokes: newStrokes };
   }),

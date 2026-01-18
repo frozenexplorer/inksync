@@ -10,7 +10,9 @@ import {
   removeText,
   addChatMessage,
   clearBoard,
-  getNewHostId
+  getNewHostId,
+  getRoomExpiryInfo,
+  touchRoom
 } from '../rooms/manager';
 import { Stroke, TextItem, JoinRoomPayload, CursorUpdate, Point, ChatMessage } from '../types';
 
@@ -18,6 +20,7 @@ interface SocketData {
   userId: string;
   roomId: string;
   userName: string;
+  clerkUserId: string | null;
 }
 
 export function setupSocketHandlers(io: Server) {
@@ -27,8 +30,8 @@ export function setupSocketHandlers(io: Server) {
     let socketData: SocketData | null = null;
 
     // Join room
-    socket.on('room:join', (payload: JoinRoomPayload) => {
-      const { roomId, userName, isCreating = false } = payload;
+    socket.on('room:join', (payload: JoinRoomPayload & { clerkUserId?: string }) => {
+      const { roomId, userName, isCreating = false, clerkUserId } = payload;
       const userId = socket.id;
       
       // Check if room exists when joining (not creating)
@@ -43,30 +46,36 @@ export function setupSocketHandlers(io: Server) {
         return;
       }
       
-      socketData = { userId, roomId, userName };
+      socketData = { userId, roomId, userName, clerkUserId: clerkUserId || null };
       
       // Join the socket room
       socket.join(roomId);
       
-      // Add user to room state
-      const { user } = addUserToRoom(roomId, userId, userName);
+      // Add user to room state (pass Clerk user ID for ownership tracking)
+      const { user } = addUserToRoom(roomId, userId, userName, clerkUserId || null);
       
       // Get current room state
       const room = getRoom(roomId);
       if (!room) return;
+
+      // Get room expiry info
+      const expiryInfo = getRoomExpiryInfo(roomId);
 
       // Send full state to the joining user
       socket.emit('room:state', {
         state: room.state,
         userId,
         role: user.role,
-        userColor: user.color
+        userColor: user.color,
+        expiresAt: expiryInfo?.expiresAt || null,
+        isGuest: expiryInfo?.isGuest || false
       });
 
       // Broadcast to others that a new user joined
       socket.to(roomId).emit('user:joined', user);
       
-      console.log(`User ${userName} (${userId}) joined room ${roomId} as ${user.role}`);
+      const authStatus = clerkUserId ? 'authenticated' : 'guest';
+      console.log(`User ${userName} (${userId}) joined room ${roomId} as ${user.role} [${authStatus}]`);
     });
 
     // New stroke added

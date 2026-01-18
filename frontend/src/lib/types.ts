@@ -65,6 +65,8 @@ export interface RoomStatePayload {
   userId: string;
   role: 'host' | 'participant';
   userColor: string;
+  expiresAt: number | null; // Timestamp when room expires, null for authenticated users
+  isGuest: boolean; // True if room was created by a guest
 }
 
 export interface JoinRoomPayload {

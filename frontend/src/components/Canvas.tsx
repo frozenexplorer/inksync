@@ -53,6 +53,8 @@ export function Canvas() {
   const transformRef = useRef<TransformState | null>(null);
   const lastPoint = useRef<Point | null>(null);
   const lastCursorEmit = useRef(0);
+  const eraseFrameRef = useRef<number | null>(null);
+  const pendingErasePointRef = useRef<Point | null>(null);
   
   const {
     strokes,
@@ -71,6 +73,7 @@ export function Canvas() {
     finishStroke,
     setTextInputPosition,
     removeStrokes,
+    applyStrokeChanges,
     addStroke,
     addText,
     updateText,
@@ -105,6 +108,14 @@ export function Canvas() {
 
     resizeObserver.observe(container);
     return () => resizeObserver.disconnect();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (eraseFrameRef.current !== null) {
+        cancelAnimationFrame(eraseFrameRef.current);
+      }
+    };
   }, []);
 
   // Helper functions for drawing (defined before use)
@@ -419,6 +430,217 @@ export function Canvas() {
     }
   }, []);
 
+  const performErase = useCallback((point: Point) => {
+    const strokeList = Object.values(strokes);
+    if (strokeList.length === 0 || eraserSize <= 0) return;
+
+    const radius = eraserSize / 2;
+    const radiusSq = radius * radius;
+    const socket = getSocket();
+
+    if (eraserMode === "stroke") {
+      const strokesToErase: string[] = [];
+
+      for (const stroke of strokeList) {
+        for (const p of stroke.points) {
+          const dx = p.x - point.x;
+          const dy = p.y - point.y;
+          if (dx * dx + dy * dy < radiusSq) {
+            strokesToErase.push(stroke.id);
+            break;
+          }
+        }
+      }
+
+      if (strokesToErase.length > 0) {
+        removeStrokes(strokesToErase);
+        if (socket.connected) {
+          socket.emit("erase:strokes", strokesToErase);
+        }
+      }
+      return;
+    }
+
+    const epsilon = 1e-6;
+    const isInside = (p: Point) => {
+      const dx = p.x - point.x;
+      const dy = p.y - point.y;
+      return dx * dx + dy * dy <= radiusSq;
+    };
+
+    const addPointUnique = (segment: Point[], p: Point) => {
+      const last = segment[segment.length - 1];
+      if (!last || Math.abs(last.x - p.x) > epsilon || Math.abs(last.y - p.y) > epsilon) {
+        segment.push(p);
+      }
+    };
+
+    const removedIds: string[] = [];
+    const newStrokes: Stroke[] = [];
+
+    for (const stroke of strokeList) {
+      const points = stroke.points;
+      if (points.length < 2) continue;
+
+      let currentSegment: Point[] = [];
+      const segments: Point[][] = [];
+      let didErase = false;
+
+      for (let i = 0; i < points.length - 1; i++) {
+        const p1 = points[i];
+        const p2 = points[i + 1];
+        const inside1 = isInside(p1);
+        const inside2 = isInside(p2);
+
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const a = dx * dx + dy * dy;
+
+        let tValues: number[] = [];
+        if (a > epsilon) {
+          const fx = p1.x - point.x;
+          const fy = p1.y - point.y;
+          const b = 2 * (fx * dx + fy * dy);
+          const c = fx * fx + fy * fy - radiusSq;
+          const discriminant = b * b - 4 * a * c;
+
+          if (discriminant > epsilon) {
+            const sqrtDisc = Math.sqrt(discriminant);
+            const t1 = (-b - sqrtDisc) / (2 * a);
+            const t2 = (-b + sqrtDisc) / (2 * a);
+            if (t1 > 0 && t1 < 1) tValues.push(t1);
+            if (t2 > 0 && t2 < 1) tValues.push(t2);
+          } else if (Math.abs(discriminant) <= epsilon) {
+            const t = -b / (2 * a);
+            if (t > 0 && t < 1 && inside1 !== inside2) {
+              tValues.push(t);
+            }
+          }
+        }
+
+        if (tValues.length === 0) {
+          if (!inside1 && !inside2) {
+            if (currentSegment.length === 0) {
+              addPointUnique(currentSegment, p1);
+            }
+            addPointUnique(currentSegment, p2);
+          } else if (inside1 && inside2) {
+            if (currentSegment.length >= 2) {
+              segments.push(currentSegment);
+            }
+            currentSegment = [];
+            didErase = true;
+          } else {
+            if (!inside1 && inside2) {
+              if (currentSegment.length === 0) {
+                addPointUnique(currentSegment, p1);
+              }
+              if (currentSegment.length >= 2) {
+                segments.push(currentSegment);
+              }
+              currentSegment = [];
+              didErase = true;
+            } else if (inside1 && !inside2) {
+              if (currentSegment.length >= 2) {
+                segments.push(currentSegment);
+              }
+              currentSegment = [];
+              didErase = true;
+              addPointUnique(currentSegment, p2);
+            }
+          }
+          continue;
+        }
+
+        tValues.sort((x, y) => x - y);
+        if (tValues.length === 2 && Math.abs(tValues[0] - tValues[1]) <= epsilon) {
+          tValues = [tValues[0]];
+        }
+
+        const ts = [0, ...tValues, 1];
+        let segmentInside = inside1;
+
+        for (let j = 0; j < ts.length - 1; j++) {
+          const tStart = ts[j];
+          const tEnd = ts[j + 1];
+
+          if (segmentInside) {
+            if (currentSegment.length >= 2) {
+              segments.push(currentSegment);
+            }
+            currentSegment = [];
+            didErase = true;
+          } else {
+            const startPoint = tStart === 0 ? p1 : {
+              x: p1.x + dx * tStart,
+              y: p1.y + dy * tStart,
+            };
+            const endPoint = tEnd === 1 ? p2 : {
+              x: p1.x + dx * tEnd,
+              y: p1.y + dy * tEnd,
+            };
+            if (currentSegment.length === 0) {
+              addPointUnique(currentSegment, startPoint);
+            } else {
+              addPointUnique(currentSegment, startPoint);
+            }
+            addPointUnique(currentSegment, endPoint);
+          }
+
+          segmentInside = !segmentInside;
+        }
+      }
+
+      if (currentSegment.length >= 2) {
+        segments.push(currentSegment);
+      }
+
+      if (!didErase) {
+        continue;
+      }
+
+      removedIds.push(stroke.id);
+
+      for (const segment of segments) {
+        if (segment.length < 2) continue;
+        newStrokes.push({
+          id: nanoid(),
+          points: segment,
+          color: stroke.color,
+          thickness: stroke.thickness,
+          authorId: stroke.authorId,
+        });
+      }
+    }
+
+    if (removedIds.length === 0) return;
+
+    applyStrokeChanges(removedIds, newStrokes);
+
+    if (socket.connected) {
+      socket.emit("erase:strokes", removedIds);
+      for (const stroke of newStrokes) {
+        socket.emit("stroke:add", stroke);
+      }
+    }
+  }, [strokes, eraserMode, eraserSize, removeStrokes, applyStrokeChanges]);
+
+  const performEraseRef = useRef(performErase);
+  performEraseRef.current = performErase;
+
+  const scheduleErase = useCallback((point: Point) => {
+    pendingErasePointRef.current = point;
+    if (eraseFrameRef.current !== null) return;
+
+    eraseFrameRef.current = requestAnimationFrame(() => {
+      eraseFrameRef.current = null;
+      const latestPoint = pendingErasePointRef.current;
+      if (!latestPoint) return;
+      pendingErasePointRef.current = null;
+      performEraseRef.current(latestPoint);
+    });
+  }, []);
+
   const stopTransformRef = useRef<() => void>(() => {});
 
   const handleTransformMove = useCallback((event: PointerEvent) => {
@@ -574,7 +796,7 @@ export function Canvas() {
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
     } else if (tool === "eraser") {
       isDrawing.current = true;
-      handleErase(point);
+      scheduleErase(point);
       emitCursorPosition(point, true);
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
     } else if (tool === "text") {
@@ -618,7 +840,7 @@ export function Canvas() {
       lastPoint.current = point;
       emitCursorPosition(point, true);
     } else if (tool === "eraser") {
-      handleErase(point);
+      scheduleErase(point);
       emitCursorPosition(point, true);
     }
   };
@@ -670,87 +892,6 @@ export function Canvas() {
         addStroke(fullStroke);
         getSocket().emit("stroke:add", fullStroke);
       }
-    }
-  };
-
-  const handleErase = (point: Point) => {
-    if (eraserMode === "stroke") {
-      // Stroke eraser - delete entire strokes
-      const strokesToErase: string[] = [];
-
-      Object.values(strokes).forEach((stroke) => {
-        for (const p of stroke.points) {
-          const distance = Math.sqrt(
-            Math.pow(p.x - point.x, 2) + Math.pow(p.y - point.y, 2)
-          );
-          if (distance < eraserSize) {
-            strokesToErase.push(stroke.id);
-            break;
-          }
-        }
-      });
-
-      if (strokesToErase.length > 0) {
-        removeStrokes(strokesToErase);
-        getSocket().emit("erase:strokes", strokesToErase);
-      }
-    } else {
-      // Pixel eraser - erase parts of strokes
-      Object.values(strokes).forEach((stroke) => {
-        const newSegments: Point[][] = [];
-        let currentSegment: Point[] = [];
-
-        stroke.points.forEach((p) => {
-          const distance = Math.sqrt(
-            Math.pow(p.x - point.x, 2) + Math.pow(p.y - point.y, 2)
-          );
-
-          if (distance >= eraserSize) {
-            // Point is outside eraser, keep it
-            currentSegment.push(p);
-          } else {
-            // Point is inside eraser, start a new segment
-            if (currentSegment.length >= 2) {
-              newSegments.push([...currentSegment]);
-            }
-            currentSegment = [];
-          }
-        });
-
-        // Don't forget the last segment
-        if (currentSegment.length >= 2) {
-          newSegments.push(currentSegment);
-        }
-
-        // If stroke was modified
-        if (newSegments.length === 0) {
-          // Entire stroke erased
-          removeStrokes([stroke.id]);
-          getSocket().emit("erase:strokes", [stroke.id]);
-        } else if (newSegments.length === 1 && newSegments[0].length === stroke.points.length) {
-          // No change
-        } else {
-          // Stroke was split or partially erased
-          // Remove original stroke
-          removeStrokes([stroke.id]);
-          getSocket().emit("erase:strokes", [stroke.id]);
-
-          // Add new strokes for each segment
-          newSegments.forEach((segment) => {
-            if (segment.length >= 2) {
-              const newStroke: Stroke = {
-                id: nanoid(),
-                points: segment,
-                color: stroke.color,
-                thickness: stroke.thickness,
-                authorId: stroke.authorId,
-              };
-              addStroke(newStroke);
-              getSocket().emit("stroke:add", newStroke);
-            }
-          });
-        }
-      });
     }
   };
 
@@ -945,7 +1086,7 @@ export function Canvas() {
   };
 
   return (
-    <div ref={containerRef} className="w-full h-full relative">
+    <div ref={containerRef} className="w-full h-full relative overflow-hidden">
       <canvas
         ref={canvasRef}
         width={dimensions.width}
@@ -1045,14 +1186,16 @@ export function Canvas() {
       {/* Eraser cursor indicator */}
       {tool === "eraser" && eraserCursor && (
         <div
-          className="pointer-events-none absolute rounded-full border-2 transition-all duration-75"
+          className="pointer-events-none absolute rounded-full border-2"
           style={{
-            left: eraserCursor.x - eraserSize,
-            top: eraserCursor.y - eraserSize,
-            width: eraserSize * 2,
-            height: eraserSize * 2,
+            left: 0,
+            top: 0,
+            width: eraserSize,
+            height: eraserSize,
+            transform: `translate3d(${eraserCursor.x - eraserSize / 2}px, ${eraserCursor.y - eraserSize / 2}px, 0)`,
             borderColor: eraserMode === "stroke" ? "#ef4444" : "#f59e0b",
             backgroundColor: eraserMode === "stroke" ? "rgba(239, 68, 68, 0.1)" : "rgba(245, 158, 11, 0.1)",
+            willChange: "transform",
           }}
         />
       )}
@@ -1070,6 +1213,8 @@ export function Canvas() {
             onCancel={() => setTextInputPosition(null)}
             fontSize={fontSize}
             color={penColor}
+            containerWidth={dimensions.width}
+            containerHeight={dimensions.height}
             fontFamily={fontFamily}
           />
         )}
