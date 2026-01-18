@@ -367,7 +367,7 @@ export default function Home() {
         
         if (response.ok) {
           const data = await response.json();
-          if (!data?.exists === false) {
+          if (data?.exists === false) {
             setErrorMessage(`Room "${cleanRoomId}" doesn't exist`);
             setIsLoading(false);
             return;
