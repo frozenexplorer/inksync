@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { nanoid } from "nanoid";
@@ -8,58 +8,98 @@ import { SignInButton, SignUpButton, UserButton, useUser } from "@clerk/nextjs";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
+type Tab = "create" | "join";
+
+function sanitizeRoomId(input: string) {
+  // Keep it friendly: trim, remove spaces, keep common safe chars
+  return input.trim().replace(/\s+/g, "").slice(0, 20);
+}
+
 export default function Home() {
   const router = useRouter();
   const { isSignedIn, user } = useUser();
-  const [showJoinModal, setShowJoinModal] = useState(false);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [roomId, setRoomId] = useState("");
+
+  const [tab, setTab] = useState<Tab>("create");
   const [userName, setUserName] = useState("");
+  const [roomId, setRoomId] = useState("");
+
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Prefill name if user already used the app before (nice UX)
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem("userName");
+      if (saved && !userName) setUserName(saved);
+    } catch {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Clear errors when switching tabs / editing fields
+  useEffect(() => {
+    setErrorMessage(null);
+    setIsLoading(false);
+  }, [tab]);
+
+  const canCreate = useMemo(() => userName.trim().length > 0 && !isLoading, [userName, isLoading]);
+  const canJoin = useMemo(
+    () => userName.trim().length > 0 && sanitizeRoomId(roomId).length > 0 && !isLoading,
+    [userName, roomId, isLoading]
+  );
 
   const handleCreateRoom = async () => {
     const name = isSignedIn ? (user?.firstName || user?.username || "User") : userName.trim();
     if (!name) return;
     setIsLoading(true);
-    
-    // Generate room ID locally for simplicity
+    setErrorMessage(null);
+
     const newRoomId = nanoid(8);
-    
-    // Store username in sessionStorage for the room page
-    sessionStorage.setItem("userName", name);
-    
-    // Add ?create=true to indicate this is a new room
+
+    try {
+      sessionStorage.setItem("userName", name);
+    } catch {
+      // ignore
+    }
+
     router.push(`/room/${newRoomId}?create=true`);
   };
 
   const handleJoinRoom = async () => {
     const name = isSignedIn ? (user?.firstName || user?.username || "User") : userName.trim();
-    if (!roomId.trim() || !name) return;
-    
+    const cleanRoomId = sanitizeRoomId(roomId);
+    if (!cleanRoomId || !name) return;
+
     setIsLoading(true);
     setErrorMessage(null);
-    
+
     try {
-      // Check if room exists before navigating
-      const response = await fetch(`${API_URL}/api/rooms/${roomId.trim()}`);
-      
+      const response = await fetch(`${API_URL}/api/rooms/${cleanRoomId}`, {
+        method: "GET",
+      });
+
       if (!response.ok) {
         setErrorMessage(`Server error: ${response.status} ${response.statusText}`);
         setIsLoading(false);
         return;
       }
-      
+
       const data = await response.json();
-      
-      if (!data.exists) {
-        setErrorMessage(`Room "${roomId.trim()}" doesn't exist`);
+
+      if (!data?.exists) {
+        setErrorMessage(`Room "${cleanRoomId}" doesn't exist`);
         setIsLoading(false);
         return;
       }
-      
-      sessionStorage.setItem("userName", name);
-      router.push(`/room/${roomId.trim()}`);
+
+      try {
+        sessionStorage.setItem("userName", name);
+      } catch {
+        // ignore
+      }
+
+      router.push(`/room/${cleanRoomId}`);
     } catch {
       setErrorMessage("Unable to connect to server. Please try again.");
       setIsLoading(false);
@@ -71,6 +111,12 @@ export default function Home() {
     sessionStorage.setItem("userName", name);
     const newRoomId = nanoid(8);
     router.push(`/room/${newRoomId}?create=true`);
+  };
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (tab === "create") return handleCreateRoom();
+    return handleJoinRoom();
   };
 
   return (
@@ -168,154 +214,205 @@ export default function Home() {
         </div>
       </motion.div>
 
-      {/* Features */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5, delay: 0.4 }}
-        className="mt-16 grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-2xl"
-      >
-        {[
-          { icon: "⚡", title: "Real-time Sync", desc: "Instant collaboration" },
-          { icon: "🎨", title: "Drawing Tools", desc: "Pen, eraser, text" },
-          { icon: "👥", title: "Multi-user", desc: "Up to 6 collaborators" },
-        ].map((feature, i) => (
-          <div
-            key={i}
-            className="text-center p-4 rounded-xl bg-white/80 border border-gray-200 shadow-sm"
+          {/* Main card (Tabs + Form) */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.55, delay: 0.1, ease: "easeOut" }}
+            className="relative"
           >
-            <div className="text-2xl mb-2">{feature.icon}</div>
-            <h3 className="font-semibold mb-1 text-[#1a1a2e]">{feature.title}</h3>
-            <p className="text-sm text-gray-500">{feature.desc}</p>
-          </div>
-        ))}
-      </motion.div>
-
-      {/* Create Room Modal */}
-      <AnimatePresence>
-        {showCreateModal && (
-          <Modal onClose={() => setShowCreateModal(false)}>
-            <h2 className="text-2xl font-bold mb-6 text-[#1a1a2e]">Create a Room</h2>
-            <div className="space-y-4">
-              {!isSignedIn && (
-                <div>
-                  <label className="block text-sm text-gray-500 mb-2">
-                    Your Name
-                  </label>
-                  <input
-                    type="text"
-                    value={userName}
-                    onChange={(e) => setUserName(e.target.value)}
-                    placeholder="Enter your name"
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-[#4f46e5] transition-colors text-[#1a1a2e]"
-                    autoFocus
-                    maxLength={20}
-                  />
-                </div>
-              )}
-              {isSignedIn && (
-                <p className="text-gray-500">Creating room as <strong className="text-[#1a1a2e]">{user?.firstName || user?.username}</strong></p>
-              )}
-              <button
-                onClick={handleCreateRoom}
-                disabled={(!isSignedIn && !userName.trim()) || isLoading}
-                className="w-full py-3 bg-[#4f46e5] hover:bg-[#4338ca] disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors"
-              >
-                {isLoading ? "Creating..." : "Create Room"}
-              </button>
-            </div>
-          </Modal>
-        )}
-      </AnimatePresence>
-
-      {/* Join Room Modal */}
-      <AnimatePresence>
-        {showJoinModal && (
-          <Modal onClose={() => { setShowJoinModal(false); setErrorMessage(null); }}>
-            <h2 className="text-2xl font-bold mb-6 text-[#1a1a2e]">Join a Room</h2>
-            <div className="space-y-4">
-              {!isSignedIn && (
-                <div>
-                  <label className="block text-sm text-gray-500 mb-2">
-                    Your Name
-                  </label>
-                  <input
-                    type="text"
-                    value={userName}
-                    onChange={(e) => setUserName(e.target.value)}
-                    placeholder="Enter your name"
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-[#4f46e5] transition-colors text-[#1a1a2e]"
-                    autoFocus
-                    maxLength={20}
-                  />
-                </div>
-              )}
-              {isSignedIn && (
-                <p className="text-gray-500">Joining as <strong className="text-[#1a1a2e]">{user?.firstName || user?.username}</strong></p>
-              )}
-              <div>
-                <label className="block text-sm text-gray-500 mb-2">
-                  Room ID
-                </label>
-                <input
-                  type="text"
-                  value={roomId}
-                  onChange={(e) => { setRoomId(e.target.value); setErrorMessage(null); }}
-                  placeholder="Enter room ID"
-                  className={`w-full px-4 py-3 bg-gray-50 border rounded-lg focus:outline-none transition-colors text-[#1a1a2e] ${
-                    errorMessage ? "border-red-500" : "border-gray-200 focus:border-[#4f46e5]"
-                  }`}
-                  autoFocus={isSignedIn}
-                  maxLength={20}
-                />
+            <div className="absolute -inset-1 rounded-3xl bg-linear-to-br from-(--primary)/30 via-transparent to-(--accent)/25 blur-2xl opacity-70" />
+            <div className="relative rounded-3xl border border-(--border) bg-(--background)/70 backdrop-blur-xl shadow-2xl p-6 md:p-7">
+              {/* Tabs */}
+              <div className="flex items-center gap-2 p-1 rounded-2xl bg-(--surface)/60 border border-(--border)">
+                <TabButton active={tab === "create"} onClick={() => setTab("create")}>
+                  Create Room
+                </TabButton>
+                <TabButton active={tab === "join"} onClick={() => setTab("join")}>
+                  Join Room
+                </TabButton>
               </div>
-              
-              {/* Error Message */}
-              <AnimatePresence>
-                {errorMessage && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="flex items-center gap-2 px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-lg"
-                  >
-                    <svg className="w-4 h-4 text-red-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                    <span className="text-sm text-red-400">{errorMessage}</span>
-                  </motion.div>
+
+              <form onSubmit={onSubmit} className="mt-6 space-y-4">
+                <Field
+                  label="Your name"
+                  hint="This will be visible to others in the room."
+                >
+                  <input
+                    value={userName}
+                    onChange={(e) => setUserName(e.target.value)}
+                    placeholder="e.g. Mayukh"
+                    maxLength={20}
+                    className="w-full px-4 py-3 rounded-xl bg-(--surface) border border-(--border) focus:outline-none focus:border-(--primary) transition-colors"
+                    autoComplete="name"
+                  />
+                </Field>
+
+                <AnimatePresence mode="popLayout">
+                  {tab === "join" && (
+                    <motion.div
+                      key="join-fields"
+                      initial={{ opacity: 0, y: -8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <Field
+                        label="Room ID"
+                        hint="Paste the code shared by the host."
+                      >
+                        <input
+                          value={roomId}
+                          onChange={(e) => {
+                            setRoomId(e.target.value);
+                            setErrorMessage(null);
+                          }}
+                          placeholder="e.g. aB3k9X1z"
+                          maxLength={20}
+                          className={`w-full px-4 py-3 rounded-xl bg-(--surface) border focus:outline-none transition-colors ${
+                            errorMessage
+                              ? "border-red-500"
+                              : "border-(--border) focus:border-(--primary)"
+                          }`}
+                          autoComplete="off"
+                          inputMode="text"
+                        />
+                      </Field>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Error */}
+                <AnimatePresence>
+                  {errorMessage && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      className="flex items-start gap-2 px-3 py-2 rounded-xl border border-red-500/30 bg-red-500/10"
+                    >
+                      <svg
+                        className="w-4 h-4 text-red-400 mt-0.5 shrink-0"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                        />
+                      </svg>
+                      <p className="text-sm text-red-300">{errorMessage}</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Primary action */}
+                {tab === "create" ? (
+                  <PrimaryButton type="submit" disabled={!canCreate} loading={isLoading}>
+                    Create & Start Drawing
+                  </PrimaryButton>
+                ) : (
+                  <PrimaryButton type="submit" disabled={!canJoin} loading={isLoading}>
+                    Verify & Join Room
+                  </PrimaryButton>
                 )}
-              </AnimatePresence>
-              
-              <button
-                onClick={handleJoinRoom}
-                disabled={(!isSignedIn && !userName.trim()) || !roomId.trim() || isLoading}
-                className="w-full py-3 bg-[#4f46e5] hover:bg-[#4338ca] disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors"
-              >
-                {isLoading ? "Checking..." : "Join Room"}
-              </button>
+
+                <div className="pt-2 text-xs text-(--text-muted) flex items-center justify-between">
+                  <span>
+                    {tab === "create"
+                      ? "A new room code is generated instantly."
+                      : "We verify the room exists before joining."}
+                  </span>
+                  <span className="hidden sm:inline">Press Enter to continue</span>
+                </div>
+              </form>
+
+              {/* Quick trust row */}
+              <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <MiniPill icon="🔒" title="Private by default" desc="Room codes required" />
+                <MiniPill icon="⚡" title="Instant sync" desc="Real-time updates" />
+                <MiniPill icon="🎯" title="Focused tools" desc="No clutter UI" />
+              </div>
             </div>
-          </Modal>
-        )}
-      </AnimatePresence>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Features / How it works */}
+      <section className="mx-auto max-w-6xl px-4 pb-14">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.45, delay: 0.2 }}
+          className="grid grid-cols-1 md:grid-cols-3 gap-6"
+        >
+          <FeatureCard
+            title="Real-time collaboration"
+            desc="Everyone sees updates instantly—perfect for meetings and teaching."
+            icon={
+              <span className="text-2xl" aria-hidden>
+                ⚡
+              </span>
+            }
+          />
+          <FeatureCard
+            title="Polished drawing experience"
+            desc="Pen + eraser + text tools designed for speed and clarity."
+            icon={
+              <span className="text-2xl" aria-hidden>
+                🎨
+              </span>
+            }
+          />
+          <FeatureCard
+            title="Room-based workflow"
+            desc="Create a code, share it, and collaborate with up to 6 people."
+            icon={
+              <span className="text-2xl" aria-hidden>
+                👥
+              </span>
+            }
+          />
+        </motion.div>
+
+        <div className="mt-10 grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <HowItWorks />
+          <UseCases />
+          <DesignNotes />
+        </div>
+      </section>
+
+      <footer className="border-t border-(--border) bg-(--background)/40">
+        <div className="mx-auto max-w-6xl px-4 py-6 flex flex-col sm:flex-row gap-2 items-start sm:items-center justify-between text-sm text-(--text-muted)">
+          <span>© {new Date().getFullYear()} InkSync</span>
+          <span className="opacity-80">Built for fast collaboration • Minimal, modern UI</span>
+        </div>
+      </footer>
     </main>
   );
 }
 
-function Modal({ 
-  children, 
-  onClose 
-}: { 
-  children: React.ReactNode; 
-  onClose: () => void;
+function TabButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
 }) {
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50"
-      onClick={onClose}
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+        active
+          ? "bg-(--primary) text-black shadow-lg shadow-(--primary)/20"
+          : "text-(--text-muted) hover:text-white hover:bg-(--surface-hover)"
+      }`}
     >
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
