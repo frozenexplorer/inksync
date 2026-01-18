@@ -93,7 +93,7 @@ export function Toolbar() {
           <button
             key={t.id}
             onClick={() => setTool(t.id)}
-            className={`p-3 rounded-xl transition-all duration-150 cursor-pointer ${
+            className={`p-3 rounded-xl transition-all duration-150 cursor-pointer flex items-center justify-center ${
               tool === t.id
                 ? "bg-(--primary) text-black"
                 : "hover:bg-(--surface-hover) text-(--text-muted) hover:text-white"
