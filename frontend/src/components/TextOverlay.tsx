@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
+import { DEFAULT_TEXT_FONT_FAMILY } from "@/lib/typography";
 import { Point } from "@/lib/types";
 
 interface TextOverlayProps {
@@ -10,12 +11,14 @@ interface TextOverlayProps {
   onCancel: () => void;
   fontSize: number;
   color?: string;
+  fontFamily?: string;
 }
 
-export function TextOverlay({ position, onSubmit, onCancel, fontSize }: TextOverlayProps) {
+export function TextOverlay({ position, onSubmit, onCancel, fontSize, fontFamily }: TextOverlayProps) {
   const [text, setText] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const isSubmitting = useRef(false);
+  const resolvedFontFamily = fontFamily ?? DEFAULT_TEXT_FONT_FAMILY;
 
   useEffect(() => {
     // Focus with a small delay to ensure the element is fully rendered
@@ -74,7 +77,7 @@ export function TextOverlay({ position, onSubmit, onCancel, fontSize }: TextOver
         className="bg-white backdrop-blur-sm outline-none border-2 border-[var(--primary)] rounded px-2 py-1 min-w-[150px] shadow-lg text-black"
         style={{ 
           fontSize: `${fontSize}px`, 
-          fontFamily: "'Outfit', sans-serif"
+          fontFamily: resolvedFontFamily
         }}
       />
       <div className="text-[10px] text-[var(--text-muted)] mt-1">

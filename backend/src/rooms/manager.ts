@@ -123,6 +123,22 @@ export function addText(roomId: string, text: TextItem): boolean {
   return true;
 }
 
+export function updateText(roomId: string, text: TextItem): boolean {
+  const room = rooms.get(roomId);
+  if (!room) return false;
+  if (!room.state.texts[text.id]) return false;
+  room.state.texts[text.id] = text;
+  return true;
+}
+
+export function removeText(roomId: string, textId: string): boolean {
+  const room = rooms.get(roomId);
+  if (!room) return false;
+  if (!room.state.texts[textId]) return false;
+  delete room.state.texts[textId];
+  return true;
+}
+
 export function clearBoard(roomId: string, userId: string): boolean {
   const room = rooms.get(roomId);
   if (!room) return false;

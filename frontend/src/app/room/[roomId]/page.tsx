@@ -55,6 +55,8 @@ export default function RoomPage() {
     addStroke,
     removeStrokes,
     addText,
+    updateText,
+    removeText,
     addMessage,
     clearBoard,
     addUser,
@@ -90,6 +92,8 @@ export default function RoomPage() {
     socket.off("stroke:added");
     socket.off("strokes:erased");
     socket.off("text:added");
+    socket.off("text:updated");
+    socket.off("text:removed");
     socket.off("chat:new");
     socket.off("board:cleared");
     socket.off("user:joined");
@@ -147,6 +151,14 @@ export default function RoomPage() {
 
     socket.on("text:added", (text: TextItem) => {
       addText(text);
+    });
+
+    socket.on("text:updated", (text: TextItem) => {
+      updateText(text);
+    });
+
+    socket.on("text:removed", (textId: string) => {
+      removeText(textId);
     });
 
     socket.on("chat:new", (message: ChatMessage) => {
@@ -209,6 +221,8 @@ export default function RoomPage() {
     addStroke,
     removeStrokes,
     addText,
+    updateText,
+    removeText,
     clearBoard,
     addUser,
     removeUser,

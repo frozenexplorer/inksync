@@ -1,11 +1,12 @@
 "use client";
 
-import { useRef, useEffect, useCallback, useState } from "react";
-import { AnimatePresence } from "framer-motion";
+import { useRef, useEffect, useCallback, useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useWhiteboardStore } from "@/store/whiteboard";
 import { getSocket } from "@/lib/socket";
 import { nanoid } from "nanoid";
 import { Point, Stroke, TextItem } from "@/lib/types";
+import { clampTextSize, DEFAULT_TEXT_FONT_FAMILY, TEXT_SIZE_RANGE } from "@/lib/typography";
 import { TextOverlay } from "./TextOverlay";
 import { CursorTooltips } from "./CursorTooltips";
 
@@ -14,6 +15,7 @@ export function Canvas() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [eraserCursor, setEraserCursor] = useState<Point | null>(null);
+  const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
   const isDrawing = useRef(false);
   const lastPoint = useRef<Point | null>(null);
   const lastCursorEmit = useRef(0);
@@ -25,6 +27,7 @@ export function Canvas() {
     tool,
     penColor,
     fontSize,
+    fontFamily,
     userId,
     textInputPosition,
     eraserMode,
@@ -36,6 +39,8 @@ export function Canvas() {
     removeStrokes,
     addStroke,
     addText,
+    updateText,
+    removeText,
   } = useWhiteboardStore();
 
   // Resize handler using ResizeObserver for reliable dimension updates
@@ -77,7 +82,9 @@ export function Canvas() {
   }, []);
 
   const drawText = useCallback((ctx: CanvasRenderingContext2D, text: TextItem) => {
-    ctx.font = `${text.fontSize}px 'Outfit', sans-serif`;
+    const resolvedFontFamily = text.fontFamily || DEFAULT_TEXT_FONT_FAMILY;
+    ctx.font = `${text.fontSize}px ${resolvedFontFamily}`;
+    ctx.textBaseline = "alphabetic";
     ctx.fillStyle = text.color;
     ctx.fillText(text.content, text.position.x, text.position.y);
   }, []);
@@ -121,6 +128,56 @@ export function Canvas() {
       requestAnimationFrame(draw);
     }
   }, [draw, dimensions]);
+
+  useEffect(() => {
+    if (tool !== "text") {
+      setSelectedTextId(null);
+    }
+  }, [tool]);
+
+  useEffect(() => {
+    if (selectedTextId && !texts[selectedTextId]) {
+      setSelectedTextId(null);
+    }
+  }, [selectedTextId, texts]);
+
+  const getTextBounds = useCallback((ctx: CanvasRenderingContext2D, text: TextItem) => {
+    const resolvedFontFamily = text.fontFamily || DEFAULT_TEXT_FONT_FAMILY;
+    ctx.font = `${text.fontSize}px ${resolvedFontFamily}`;
+    ctx.textBaseline = "alphabetic";
+    const metrics = ctx.measureText(text.content);
+    const ascent = metrics.actualBoundingBoxAscent || text.fontSize;
+    const descent = metrics.actualBoundingBoxDescent || Math.max(2, text.fontSize * 0.2);
+    return {
+      x: text.position.x,
+      y: text.position.y - ascent,
+      width: metrics.width,
+      height: ascent + descent,
+    };
+  }, []);
+
+  const findTextAtPoint = useCallback((point: Point) => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return null;
+
+    const padding = 6;
+    const textList = Object.values(texts);
+    for (let i = textList.length - 1; i >= 0; i -= 1) {
+      const text = textList[i];
+      const bounds = getTextBounds(ctx, text);
+      if (
+        point.x >= bounds.x - padding &&
+        point.x <= bounds.x + bounds.width + padding &&
+        point.y >= bounds.y - padding &&
+        point.y <= bounds.y + bounds.height + padding
+      ) {
+        return text.id;
+      }
+    }
+
+    return null;
+  }, [getTextBounds, texts]);
 
   const getPointerPosition = (e: React.PointerEvent): Point => {
     const canvas = canvasRef.current;
@@ -166,6 +223,14 @@ export function Canvas() {
     } else if (tool === "text") {
       // Don't capture pointer for text tool - let the input handle it
       e.preventDefault();
+      const hitTextId = findTextAtPoint(point);
+      if (hitTextId) {
+        setSelectedTextId(hitTextId);
+        setTextInputPosition(null);
+        return;
+      }
+
+      setSelectedTextId(null);
       setTextInputPosition(point);
     }
   };
@@ -331,6 +396,7 @@ export function Canvas() {
       position: textInputPosition,
       content: content.trim(),
       fontSize,
+      fontFamily: fontFamily || DEFAULT_TEXT_FONT_FAMILY,
       color: penColor,
       authorId: userId || "anonymous",
     };
@@ -345,6 +411,63 @@ export function Canvas() {
     }
     
     setTextInputPosition(null);
+  };
+
+  const selectedText = selectedTextId ? texts[selectedTextId] : null;
+  const selectedTextBounds = useMemo(() => {
+    if (!selectedText) return null;
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!ctx) return null;
+    return getTextBounds(ctx, selectedText);
+  }, [selectedText, getTextBounds, dimensions]);
+
+  const selectionPadding = 6;
+  const selectionBox = selectedTextBounds
+    ? {
+        left: selectedTextBounds.x - selectionPadding,
+        top: selectedTextBounds.y - selectionPadding,
+        width: selectedTextBounds.width + selectionPadding * 2,
+        height: selectedTextBounds.height + selectionPadding * 2,
+      }
+    : null;
+
+  const selectionControlWidth = 180;
+  const selectionControlLeft = selectionBox
+    ? Math.min(
+        Math.max(8, selectionBox.left),
+        Math.max(8, dimensions.width - selectionControlWidth - 8)
+      )
+    : 0;
+  const selectionControlTop = selectionBox ? Math.max(8, selectionBox.top - 44) : 0;
+
+  const handleSelectedTextSizeChange = (nextSize: number) => {
+    if (!selectedText) return;
+    const clampedSize = clampTextSize(nextSize);
+    if (clampedSize === selectedText.fontSize) return;
+
+    const updatedText: TextItem = {
+      ...selectedText,
+      fontSize: clampedSize,
+      fontFamily: selectedText.fontFamily || DEFAULT_TEXT_FONT_FAMILY,
+    };
+    updateText(updatedText);
+
+    const socket = getSocket();
+    if (socket.connected) {
+      socket.emit("text:update", updatedText);
+    }
+  };
+
+  const handleDeleteSelectedText = () => {
+    if (!selectedText) return;
+    removeText(selectedText.id);
+    setSelectedTextId(null);
+
+    const socket = getSocket();
+    if (socket.connected) {
+      socket.emit("text:remove", selectedText.id);
+    }
   };
 
   const getCursorClass = () => {
@@ -372,6 +495,58 @@ export function Canvas() {
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerLeaveCanvas}
       />
+
+      {tool === "text" && selectedText && selectionBox && (
+        <div className="pointer-events-none absolute inset-0">
+          <div
+            className="absolute rounded-md border border-(--primary)"
+            style={{
+              left: selectionBox.left,
+              top: selectionBox.top,
+              width: selectionBox.width,
+              height: selectionBox.height,
+            }}
+          />
+          <AnimatePresence>
+            <motion.div
+              key={selectedText.id}
+              initial={{ opacity: 0, y: -6, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -6, scale: 0.98 }}
+              transition={{ duration: 0.15 }}
+              className="pointer-events-auto absolute flex items-center gap-3 rounded-lg bg-(--surface) border border-(--border) px-2 py-1.5 shadow-xl"
+              style={{ left: selectionControlLeft, top: selectionControlTop }}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] text-(--text-muted) uppercase tracking-wide">Size</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-(--text-muted)">{selectedText.fontSize}px</span>
+                  <input
+                    type="range"
+                    min={TEXT_SIZE_RANGE.min}
+                    max={TEXT_SIZE_RANGE.max}
+                    step={TEXT_SIZE_RANGE.step}
+                    value={selectedText.fontSize}
+                    onChange={(e) => handleSelectedTextSizeChange(Number(e.target.value))}
+                    className="w-24 h-1.5 bg-(--surface-hover) rounded-full appearance-none cursor-pointer accent-(--primary)"
+                  />
+                </div>
+              </div>
+              <button
+                onClick={handleDeleteSelectedText}
+                className="p-1.5 rounded-md text-red-400 hover:bg-red-500/20 transition-colors"
+                title="Delete text"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      )}
       
       {/* Eraser cursor indicator */}
       {tool === "eraser" && eraserCursor && (
@@ -401,6 +576,7 @@ export function Canvas() {
             onCancel={() => setTextInputPosition(null)}
             fontSize={fontSize}
             color={penColor}
+            fontFamily={fontFamily}
           />
         )}
       </AnimatePresence>

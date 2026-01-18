@@ -18,6 +18,7 @@ export interface TextItem {
   position: Point;
   content: string;
   fontSize: number;
+  fontFamily?: string;
   color: string;
   authorId: string;
 }
