@@ -103,7 +103,7 @@ function Toast({ toast, onDismiss }: { toast: ToastMessage; onDismiss: () => voi
 
       {/* Message */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm text-white font-medium truncate">{toast.userName}</p>
+        <p className="text-sm text-white font-medium truncate">{toast.userName ?? "Unknown User"}</p>
         <p className="text-xs text-(--text-muted)">
           {isJoin ? "joined the room" : "left the room"}
         </p>
