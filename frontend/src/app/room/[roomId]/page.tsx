@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { UserButton, useUser } from "@clerk/nextjs";
 import { useWhiteboardStore } from "@/store/whiteboard";
 import { connectSocket, disconnectSocket, getSocket } from "@/lib/socket";
+import { renderBoardToCanvas } from "@/lib/canvasExport";
 import { Canvas } from "@/components/Canvas";
 import { Toolbar } from "@/components/Toolbar";
 import { PresenceBar } from "@/components/PresenceBar";
@@ -32,6 +33,7 @@ export default function RoomPage() {
   });
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [hasUnread, setHasUnread] = useState(false);
+  const [isExportOpen, setIsExportOpen] = useState(false);
   const { toasts, addToast, removeToast } = useToasts();
   const addToastRef = useRef(addToast);
   const hasInitialized = useRef(false);
@@ -39,6 +41,7 @@ export default function RoomPage() {
   const isChatOpenRef = useRef(isChatOpen);
   const userIdRef = useRef<string | null>(null);
   const clerkUserIdRef = useRef<string | null>(null);
+  const exportMenuRef = useRef<HTMLDivElement | null>(null);
   
   // Update ref in effect to avoid updating during render
   useEffect(() => {
@@ -87,6 +90,30 @@ export default function RoomPage() {
   useEffect(() => {
     clerkUserIdRef.current = user?.id || null;
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!isExportOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const menu = exportMenuRef.current;
+      if (!menu) return;
+      if (menu.contains(event.target as Node)) return;
+      setIsExportOpen(false);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsExportOpen(false);
+      }
+    };
+
+    window.addEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isExportOpen]);
 
   const setupSocketListeners = useCallback(() => {
     const socket = getSocket();
@@ -286,6 +313,57 @@ export default function RoomPage() {
     });
   };
 
+  const getExportCanvas = useCallback(() => {
+    const { strokes, texts } = useWhiteboardStore.getState();
+    const exportResult = renderBoardToCanvas({ strokes, texts });
+    if (!exportResult) {
+      addToastRef.current({
+        type: "error",
+        message: "Nothing to export yet.",
+      });
+      return null;
+    }
+    return exportResult;
+  }, []);
+
+  const handleExportPdf = useCallback(async () => {
+    setIsExportOpen(false);
+    const exportResult = getExportCanvas();
+    if (!exportResult) return;
+
+    try {
+      const { jsPDF } = await import("jspdf");
+      const { canvas, width, height } = exportResult;
+      const pdf = new jsPDF({
+        orientation: width >= height ? "l" : "p",
+        unit: "px",
+        format: [width, height],
+        compress: true,
+      });
+      const imageData = canvas.toDataURL("image/png");
+      pdf.addImage(imageData, "PNG", 0, 0, width, height);
+      pdf.save(`inksync-board-${new Date().toISOString().slice(0, 10)}.pdf`);
+    } catch {
+      addToastRef.current({
+        type: "error",
+        message: "Failed to export PDF.",
+      });
+    }
+  }, [getExportCanvas]);
+
+  const handleExportPng = useCallback(() => {
+    setIsExportOpen(false);
+    const exportResult = getExportCanvas();
+    if (!exportResult) return;
+
+    const { canvas } = exportResult;
+    const imageData = canvas.toDataURL("image/png");
+    const link = document.createElement("a");
+    link.href = imageData;
+    link.download = `inksync-board-${new Date().toISOString().slice(0, 10)}.png`;
+    link.click();
+  }, [getExportCanvas]);
+
   const handleSendChat = (content: string) => {
     const socket = getSocket();
     if (!socket.connected) return;
@@ -343,6 +421,7 @@ export default function RoomPage() {
             onClick={handleToggleChat}
             aria-label={isChatOpen ? "Close chat" : "Open chat"}
             aria-pressed={isChatOpen}
+            title="Chat"
             className={`relative w-9 h-9 rounded-lg border border-[var(--border)] flex items-center justify-center transition-colors ${
               isChatOpen
                 ? "bg-[var(--primary)] text-black"
@@ -361,6 +440,63 @@ export default function RoomPage() {
               <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[var(--secondary)] ring-2 ring-[var(--surface)]" />
             )}
           </button>
+
+          {/* Export menu */}
+          <div ref={exportMenuRef} className="relative">
+            <button
+              onClick={() => setIsExportOpen((prev) => !prev)}
+              aria-label="Export options"
+              aria-haspopup="menu"
+              aria-expanded={isExportOpen}
+              title="Export"
+              className={`relative w-9 h-9 rounded-lg border border-[var(--border)] flex items-center justify-center transition-colors ${
+                isExportOpen
+                  ? "bg-[var(--primary)] text-black"
+                  : "bg-[var(--surface-hover)] hover:bg-[var(--primary)] hover:text-black"
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 3v10m0 0l4-4m-4 4l-4-4M4 17v3h16v-3"
+                />
+              </svg>
+            </button>
+
+            {isExportOpen && (
+              <div className="absolute right-0 top-full mt-2 w-40 rounded-xl border border-[var(--border)] bg-[var(--surface)]/95 p-2 shadow-xl backdrop-blur z-40">
+                <button
+                  onClick={handleExportPng}
+                  aria-label="Export as PNG"
+                  className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[var(--text)] hover:bg-[var(--surface-hover)]"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16v12H4z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 14l3-3 4 4 3-3 3 4" />
+                  </svg>
+                  <span>Export PNG</span>
+                </button>
+                <button
+                  onClick={handleExportPdf}
+                  aria-label="Export as PDF"
+                  className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[var(--text)] hover:bg-[var(--surface-hover)]"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8 6h6l4 4v8a2 2 0 01-2 2H8a2 2 0 01-2-2V8a2 2 0 012-2z"
+                    />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 12h4m-4 3h4" />
+                  </svg>
+                  <span>Export PDF</span>
+                </button>
+              </div>
+            )}
+          </div>
 
           {/* Share button */}
           <button
