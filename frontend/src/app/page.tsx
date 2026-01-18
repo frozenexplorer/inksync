@@ -367,7 +367,7 @@ export default function Home() {
         
         if (response.ok) {
           const data = await response.json();
-          if (!data?.exists) {
+          if (!data?.exists === false) {
             setErrorMessage(`Room "${cleanRoomId}" doesn't exist`);
             setIsLoading(false);
             return;
@@ -383,6 +383,7 @@ export default function Home() {
       // Navigate to room - socket handler will validate if API check didn't work
       router.push(`/room/${cleanRoomId}`);
     } catch (error) {
+      console.log("Error in handleJoinRoom:", error);
       setErrorMessage("Unable to connect to server. Please try again.");
       setIsLoading(false);
     }
