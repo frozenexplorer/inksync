@@ -296,7 +296,15 @@ export function Canvas() {
       if ((event.key === "Delete" || event.key === "Backspace") && selectedTextId) {
         if (textInputPosition || isEditableTarget) return;
         event.preventDefault();
-        handleDeleteSelectedText();
+        const textToDelete = texts[selectedTextId];
+        if (textToDelete) {
+          removeText(selectedTextId);
+          setSelectedTextId(null);
+          const socket = getSocket();
+          if (socket.connected) {
+            socket.emit("text:remove", selectedTextId)
+          }
+        }
       }
     };
 
@@ -760,8 +768,12 @@ export function Canvas() {
     window.removeEventListener("pointercancel", handleTransformEnd);
   }, [handleTransformEnd, handleTransformMove]);
 
+  // Update ref during render - this is safe for refs and keeps it in sync
+  // This pattern is necessary for event handlers that need the latest callback
+  // eslint-disable-next-line
+  stopTransformRef.current = stopTransform;
+
   useEffect(() => {
-    stopTransformRef.current = stopTransform;
     return () => stopTransform();
   }, [stopTransform]);
 
