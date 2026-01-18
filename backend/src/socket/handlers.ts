@@ -1,20 +1,23 @@
 import { Server, Socket } from 'socket.io';
-import { 
-  addUserToRoom, 
-  removeUserFromRoom, 
-  getRoom, 
-  addStroke, 
+import {
+  addUserToRoom,
+  removeUserFromRoom,
+  getRoom,
+  addStroke,
   removeStrokes,
   addText,
   updateText,
   removeText,
+  addShape,
+  updateShape,
+  removeShape,
   addChatMessage,
   clearBoard,
   getNewHostId,
   getRoomExpiryInfo,
   touchRoom
 } from '../rooms/manager';
-import { Stroke, TextItem, JoinRoomPayload, CursorUpdate, Point, ChatMessage } from '../types';
+import { Stroke, TextItem, ShapeItem, JoinRoomPayload, CursorUpdate, Point, ChatMessage } from '../types';
 
 interface SocketData {
   userId: string;
@@ -26,14 +29,14 @@ interface SocketData {
 export function setupSocketHandlers(io: Server) {
   io.on('connection', (socket: Socket) => {
     console.log('Client connected:', socket.id);
-    
+
     let socketData: SocketData | null = null;
 
     // Join room
     socket.on('room:join', (payload: JoinRoomPayload & { clerkUserId?: string }) => {
       const { roomId, userName, isCreating = false, clerkUserId } = payload;
       const userId = socket.id;
-      
+
       // Validate room ID format (basic check)
       if (!roomId || roomId.length < 4 || roomId.length > 20) {
         socket.emit('room:error', {
@@ -42,16 +45,16 @@ export function setupSocketHandlers(io: Server) {
         });
         return;
       }
-      
+
       socketData = { userId, roomId, userName, clerkUserId: clerkUserId || null };
-      
+
       // Join the socket room
       socket.join(roomId);
-      
+
       // Add user to room state (pass Clerk user ID for ownership tracking)
       // This will create the room if it doesn't exist (via getOrCreateRoom)
       const { user } = addUserToRoom(roomId, userId, userName, clerkUserId || null);
-      
+
       // Get current room state
       const room = getRoom(roomId);
       if (!room) {
@@ -77,7 +80,7 @@ export function setupSocketHandlers(io: Server) {
 
       // Broadcast to others that a new user joined
       socket.to(roomId).emit('user:joined', user);
-      
+
       const authStatus = clerkUserId ? 'authenticated' : 'guest';
       console.log(`User ${userName} (${userId}) joined room ${roomId} as ${user.role} [${authStatus}]`);
     });
@@ -86,7 +89,7 @@ export function setupSocketHandlers(io: Server) {
     socket.on('stroke:add', (stroke: Stroke) => {
       if (!socketData) return;
       const { roomId } = socketData;
-      
+
       if (addStroke(roomId, stroke)) {
         // Broadcast to other clients only (not back to sender)
         socket.to(roomId).emit('stroke:added', stroke);
@@ -97,7 +100,7 @@ export function setupSocketHandlers(io: Server) {
     socket.on('erase:strokes', (strokeIds: string[]) => {
       if (!socketData) return;
       const { roomId } = socketData;
-      
+
       if (removeStrokes(roomId, strokeIds)) {
         // Broadcast to other clients only (not back to sender)
         socket.to(roomId).emit('strokes:erased', strokeIds);
@@ -108,7 +111,7 @@ export function setupSocketHandlers(io: Server) {
     socket.on('text:add', (text: TextItem) => {
       if (!socketData) return;
       const { roomId } = socketData;
-      
+
       if (addText(roomId, text)) {
         // Broadcast to other clients only (not back to sender)
         socket.to(roomId).emit('text:added', text);
@@ -130,6 +133,36 @@ export function setupSocketHandlers(io: Server) {
 
       if (removeText(roomId, textId)) {
         socket.to(roomId).emit('text:removed', textId);
+      }
+    });
+
+    // Shape added
+    socket.on('shape:add', (shape: ShapeItem) => {
+      if (!socketData) return;
+      const { roomId } = socketData;
+
+      if (addShape(roomId, shape)) {
+        socket.to(roomId).emit('shape:added', shape);
+      }
+    });
+
+    // Shape updated
+    socket.on('shape:update', (shape: ShapeItem) => {
+      if (!socketData) return;
+      const { roomId } = socketData;
+
+      if (updateShape(roomId, shape)) {
+        socket.to(roomId).emit('shape:updated', shape);
+      }
+    });
+
+    // Shape removed
+    socket.on('shape:remove', (shapeId: string) => {
+      if (!socketData) return;
+      const { roomId } = socketData;
+
+      if (removeShape(roomId, shapeId)) {
+        socket.to(roomId).emit('shape:removed', shapeId);
       }
     });
 
@@ -165,7 +198,7 @@ export function setupSocketHandlers(io: Server) {
     socket.on('board:clear', () => {
       if (!socketData) return;
       const { roomId, userId } = socketData;
-      
+
       if (clearBoard(roomId, userId)) {
         io.to(roomId).emit('board:cleared');
       }
@@ -175,13 +208,13 @@ export function setupSocketHandlers(io: Server) {
     socket.on('cursor:move', (data: { position: Point; isActive: boolean }) => {
       if (!socketData) return;
       const { roomId, userId, userName } = socketData;
-      
+
       const room = getRoom(roomId);
       if (!room) return;
-      
+
       const user = room.state.users[userId];
       if (!user) return;
-      
+
       const cursorUpdate: CursorUpdate = {
         userId,
         userName,
@@ -189,7 +222,7 @@ export function setupSocketHandlers(io: Server) {
         position: data.position,
         isActive: data.isActive,
       };
-      
+
       // Broadcast to others (not back to sender)
       socket.to(roomId).emit('cursor:update', cursorUpdate);
     });
@@ -198,18 +231,18 @@ export function setupSocketHandlers(io: Server) {
     socket.on('disconnect', () => {
       if (!socketData) return;
       const { roomId, userId } = socketData;
-      
+
       const user = removeUserFromRoom(roomId, userId);
       if (user) {
         socket.to(roomId).emit('user:left', userId);
-        
+
         // If host left, notify about new host
         const newHostId = getNewHostId(roomId);
         if (newHostId && newHostId !== userId) {
           io.to(roomId).emit('host:changed', newHostId);
         }
       }
-      
+
       console.log('Client disconnected:', socket.id);
     });
   });

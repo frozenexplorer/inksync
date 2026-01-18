@@ -5,7 +5,7 @@ import { AnimatePresence } from "framer-motion";
 import { useWhiteboardStore } from "@/store/whiteboard";
 import { getSocket } from "@/lib/socket";
 import { nanoid } from "nanoid";
-import { Point, Stroke, TextItem, Tool } from "@/lib/types";
+import { Point, Stroke, TextItem, ShapeItem, Tool } from "@/lib/types";
 import { clampTextSize, DEFAULT_TEXT_FONT_FAMILY } from "@/lib/typography";
 import { TextOverlay } from "./TextOverlay";
 import { CursorTooltips } from "./CursorTooltips";
@@ -66,13 +66,17 @@ export function Canvas() {
   const lastCursorEmit = useRef(0);
   const eraseFrameRef = useRef<number | null>(null);
   const pendingErasePointRef = useRef<Point | null>(null);
-  
+  const [currentShape, setCurrentShape] = useState<{ start: Point; end: Point } | null>(null);
+
   const {
     strokes,
     texts,
+    shapes,
     currentStroke,
     tool,
     penColor,
+    penThickness,
+    shapeType,
     fontSize,
     fontFamily,
     userId,
@@ -90,6 +94,9 @@ export function Canvas() {
     addText,
     updateText,
     removeText,
+    addShape,
+    updateShape,
+    removeShape,
   } = useWhiteboardStore();
 
   const textsRef = useRef(texts);
@@ -155,11 +162,11 @@ export function Canvas() {
     ctx.lineJoin = "round";
 
     ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
-    
+
     for (let i = 1; i < stroke.points.length; i++) {
       ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
     }
-    
+
     ctx.stroke();
   }, []);
 
@@ -216,12 +223,62 @@ export function Canvas() {
     ctx.restore();
   }, []);
 
+  const drawShape = useCallback((ctx: CanvasRenderingContext2D, shape: ShapeItem | { type: string; start: Point; end: Point; color: string; thickness: number }) => {
+    ctx.strokeStyle = shape.color;
+    ctx.lineWidth = shape.thickness;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+
+    const { start, end } = shape;
+    const width = end.x - start.x;
+    const height = end.y - start.y;
+
+    if (shape.type === "rectangle") {
+      ctx.strokeRect(start.x, start.y, width, height);
+    } else if (shape.type === "ellipse") {
+      const centerX = start.x + width / 2;
+      const centerY = start.y + height / 2;
+      const radiusX = Math.abs(width / 2);
+      const radiusY = Math.abs(height / 2);
+      ctx.beginPath();
+      ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, 2 * Math.PI);
+      ctx.stroke();
+    } else if (shape.type === "line") {
+      ctx.beginPath();
+      ctx.moveTo(start.x, start.y);
+      ctx.lineTo(end.x, end.y);
+      ctx.stroke();
+    } else if (shape.type === "arrow") {
+      // Draw line
+      ctx.beginPath();
+      ctx.moveTo(start.x, start.y);
+      ctx.lineTo(end.x, end.y);
+      ctx.stroke();
+
+      // Draw arrowhead
+      const angle = Math.atan2(end.y - start.y, end.x - start.x);
+      const headLength = Math.max(10, shape.thickness * 3);
+      ctx.beginPath();
+      ctx.moveTo(end.x, end.y);
+      ctx.lineTo(
+        end.x - headLength * Math.cos(angle - Math.PI / 6),
+        end.y - headLength * Math.sin(angle - Math.PI / 6)
+      );
+      ctx.moveTo(end.x, end.y);
+      ctx.lineTo(
+        end.x - headLength * Math.cos(angle + Math.PI / 6),
+        end.y - headLength * Math.sin(angle + Math.PI / 6)
+      );
+      ctx.stroke();
+    }
+  }, []);
+
   // Draw all strokes and texts
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
-    
+
     // Don't draw if dimensions aren't set yet
     if (canvas.width === 0 || canvas.height === 0) return;
 
@@ -261,12 +318,33 @@ export function Canvas() {
     Object.values(texts).forEach((text) => {
       drawText(ctx, text);
     });
+
+    // Draw all finalized shapes
+    Object.values(shapes).forEach((shape) => {
+      drawShape(ctx, shape);
+    });
+
+    // Draw current shape (being drawn)
+    if (currentShape) {
+      drawShape(ctx, {
+        type: shapeType,
+        start: currentShape.start,
+        end: currentShape.end,
+        color: penColor,
+        thickness: penThickness,
+      });
+    }
   }, [
     strokes,
     texts,
+    shapes,
     currentStroke,
+    currentShape,
+    shapeType,
     userId,
     tool,
+    penColor,
+    penThickness,
     textInputPosition,
     hoveredTextId,
     selectedTextId,
@@ -274,6 +352,7 @@ export function Canvas() {
     zoom,
     drawStroke,
     drawText,
+    drawShape,
     drawHoverHighlight,
   ]);
 
@@ -472,7 +551,7 @@ export function Canvas() {
     const now = Date.now();
     if (now - lastCursorEmit.current < 33) return; // Throttle to ~30fps
     lastCursorEmit.current = now;
-    
+
     const socket = getSocket();
     if (socket.connected) {
       socket.emit("cursor:move", { position: point, isActive });
@@ -690,7 +769,7 @@ export function Canvas() {
     });
   }, []);
 
-  const stopTransformRef = useRef<() => void>(() => {});
+  const stopTransformRef = useRef<() => void>(() => { });
 
   const handleTransformMove = useCallback((event: PointerEvent) => {
     const transform = transformRef.current;
@@ -829,7 +908,7 @@ export function Canvas() {
   const handlePointerDown = (e: React.PointerEvent) => {
     // Don't handle if text input is already open
     if (textInputPosition) return;
-    
+
     const screenPoint = getPointFromClient(e.clientX, e.clientY);
     const point = toWorldPoint(screenPoint);
     const shouldPan = e.button === 1 || (tool === "pan" && e.button === 0);
@@ -904,12 +983,12 @@ export function Canvas() {
       setPanOffset(nextOffset);
       return;
     }
-    
+
     // Update eraser cursor position for visual indicator
     if (tool === "eraser") {
       setEraserCursor(screenPoint);
     }
-    
+
     if (!isDrawing.current) {
       if ((tool === "text" || tool === "pen") && !textInputPosition && !transformRef.current) {
         const hitTextId = findTextAtPoint(point);
@@ -931,7 +1010,7 @@ export function Canvas() {
       emitCursorPosition(point, true);
     }
   };
-  
+
   const handlePointerLeaveCanvas = (e: React.PointerEvent) => {
     setEraserCursor(null);
     setHoveredTextId(null);
@@ -972,12 +1051,12 @@ export function Canvas() {
       return;
     }
     if (!isDrawing.current) return;
-    
+
     const point = getPointerPosition(e);
     isDrawing.current = false;
     lastPoint.current = null;
     (e.target as HTMLElement).releasePointerCapture(e.pointerId);
-    
+
     // Emit that drawing stopped
     emitCursorPosition(point, false);
 
@@ -1014,13 +1093,13 @@ export function Canvas() {
 
     // Add locally first for immediate feedback
     addText(text);
-    
+
     // Then sync to server
     const socket = getSocket();
     if (socket.connected) {
       socket.emit("text:add", text);
     }
-    
+
     setTextInputPosition(null);
   };
 
@@ -1284,11 +1363,10 @@ export function Canvas() {
           aria-label="Toggle pan tool"
           aria-pressed={tool === "pan"}
           title="Pan tool (or hold middle mouse button)"
-          className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${
-            tool === "pan"
-              ? "bg-(--primary) text-black"
-              : "text-(--text-muted) hover:bg-(--surface-hover) hover:text-white"
-          }`}
+          className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${tool === "pan"
+            ? "bg-(--primary) text-black"
+            : "text-(--text-muted) hover:bg-(--surface-hover) hover:text-white"
+            }`}
         >
           <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -1304,11 +1382,10 @@ export function Canvas() {
           aria-label="Select pen tool"
           aria-pressed={tool === "pen"}
           title="Pen tool"
-          className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${
-            tool === "pen"
-              ? "bg-(--primary) text-black"
-              : "text-(--text-muted) hover:bg-(--surface-hover) hover:text-white"
-          }`}
+          className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${tool === "pen"
+            ? "bg-(--primary) text-black"
+            : "text-(--text-muted) hover:bg-(--surface-hover) hover:text-white"
+            }`}
         >
           <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -1322,11 +1399,10 @@ export function Canvas() {
           aria-label="Zoom out"
           title="Zoom out"
           disabled={isZoomMin}
-          className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
-            isZoomMin
-              ? "cursor-not-allowed opacity-50 text-(--text-muted)"
-              : "text-(--text-muted) hover:bg-(--surface-hover) hover:text-white"
-          }`}
+          className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${isZoomMin
+            ? "cursor-not-allowed opacity-50 text-(--text-muted)"
+            : "text-(--text-muted) hover:bg-(--surface-hover) hover:text-white"
+            }`}
         >
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14" />
@@ -1340,11 +1416,10 @@ export function Canvas() {
           aria-label="Zoom in"
           title="Zoom in"
           disabled={isZoomMax}
-          className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
-            isZoomMax
-              ? "cursor-not-allowed opacity-50 text-(--text-muted)"
-              : "text-(--text-muted) hover:bg-(--surface-hover) hover:text-white"
-          }`}
+          className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${isZoomMax
+            ? "cursor-not-allowed opacity-50 text-(--text-muted)"
+            : "text-(--text-muted) hover:bg-(--surface-hover) hover:text-white"
+            }`}
         >
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v14m-7-7h14" />
@@ -1356,11 +1431,10 @@ export function Canvas() {
           aria-label="Reset view"
           title="Reset view"
           disabled={isViewCentered}
-          className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
-            isViewCentered
-              ? "cursor-not-allowed opacity-50 text-(--text-muted)"
-              : "text-(--text-muted) hover:bg-(--surface-hover) hover:text-white"
-          }`}
+          className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${isViewCentered
+            ? "cursor-not-allowed opacity-50 text-(--text-muted)"
+            : "text-(--text-muted) hover:bg-(--surface-hover) hover:text-white"
+            }`}
         >
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <circle cx="12" cy="12" r="3" strokeWidth={2} />
@@ -1453,7 +1527,7 @@ export function Canvas() {
           )}
         </>
       )}
-      
+
       {/* Eraser cursor indicator */}
       {tool === "eraser" && eraserCursor && (
         <div
@@ -1470,10 +1544,10 @@ export function Canvas() {
           }}
         />
       )}
-      
+
       {/* Remote cursor tooltips */}
       <CursorTooltips offset={panOffset} zoom={zoom} />
-      
+
       {/* Text input overlay */}
       <AnimatePresence>
         {textOverlayPosition && (
