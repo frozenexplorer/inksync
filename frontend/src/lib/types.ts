@@ -19,6 +19,7 @@ export interface TextItem {
   content: string;
   fontSize: number;
   fontFamily?: string;
+  rotation?: number;
   color: string;
   authorId: string;
 }
