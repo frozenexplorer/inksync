@@ -196,7 +196,7 @@ export function Toolbar() {
               onClick={() => setPenThickness(thickness)}
               className={`w-full p-1.5 rounded-lg flex items-center justify-center transition-all duration-150 ${
                 penThickness === thickness
-                  ? "bg-(--primary)/20"
+                  ? "bg-(--primary) opacity-20"
                   : "hover:bg-(--surface-hover)"
               }`}
               title={`${thickness}px`}
