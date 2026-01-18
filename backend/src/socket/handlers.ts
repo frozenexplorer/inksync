@@ -73,8 +73,8 @@ export function setupSocketHandlers(io: Server) {
       const { roomId } = socketData;
       
       if (addStroke(roomId, stroke)) {
-        // Broadcast to all clients in the room (including sender)
-        io.to(roomId).emit('stroke:added', stroke);
+        // Broadcast to other clients only (not back to sender)
+        socket.to(roomId).emit('stroke:added', stroke);
       }
     });
 
@@ -84,7 +84,8 @@ export function setupSocketHandlers(io: Server) {
       const { roomId } = socketData;
       
       if (removeStrokes(roomId, strokeIds)) {
-        io.to(roomId).emit('strokes:erased', strokeIds);
+        // Broadcast to other clients only (not back to sender)
+        socket.to(roomId).emit('strokes:erased', strokeIds);
       }
     });
 
@@ -94,7 +95,8 @@ export function setupSocketHandlers(io: Server) {
       const { roomId } = socketData;
       
       if (addText(roomId, text)) {
-        io.to(roomId).emit('text:added', text);
+        // Broadcast to other clients only (not back to sender)
+        socket.to(roomId).emit('text:added', text);
       }
     });
 

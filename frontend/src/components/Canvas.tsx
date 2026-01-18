@@ -206,6 +206,8 @@ export function Canvas() {
             ...stroke,
             authorId: userId,
           };
+          // Add locally first (server won't broadcast back to sender)
+          addStroke(fullStroke);
           getSocket().emit("stroke:add", fullStroke);
         }
       }
@@ -230,6 +232,8 @@ export function Canvas() {
           ...stroke,
           authorId: userId,
         };
+        // Add locally first (server won't broadcast back to sender)
+        addStroke(fullStroke);
         getSocket().emit("stroke:add", fullStroke);
       }
     }
