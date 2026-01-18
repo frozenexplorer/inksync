@@ -72,7 +72,7 @@ export default function Home() {
         className="text-center mb-12"
       >
         <div className="flex items-center justify-center gap-3 mb-6">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[var(--primary)] to-[var(--accent)] flex items-center justify-center">
+          <div className="w-12 h-12 rounded-xl bg-linear-to-br from-(--primary) to-(--accent) flex items-center justify-center">
             <svg 
               className="w-7 h-7 text-white" 
               fill="none" 
@@ -88,10 +88,10 @@ export default function Home() {
             </svg>
           </div>
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
-            Ink<span className="text-[var(--primary)]">Sync</span>
+            Ink<span className="text-(--primary)">Sync</span>
           </h1>
         </div>
-        <p className="text-[var(--text-muted)] text-lg md:text-xl max-w-md mx-auto">
+        <p className="text-(--text-muted) text-lg md:text-xl max-w-md mx-auto">
           Draw, collaborate, and create together in real-time
         </p>
       </motion.div>
@@ -105,13 +105,13 @@ export default function Home() {
       >
         <button
           onClick={() => setShowCreateModal(true)}
-          className="px-8 py-4 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-black font-semibold rounded-xl transition-all duration-200 hover:scale-105 hover:shadow-lg hover:shadow-[var(--primary)]/20"
+          className="px-8 py-4 bg-(--primary) hover:bg-(--primary-hover) text-black font-semibold rounded-xl transition-all duration-200 hover:scale-105 hover:shadow-lg hover:shadow-(--primary)/20"
         >
           Create Room
         </button>
         <button
           onClick={() => setShowJoinModal(true)}
-          className="px-8 py-4 bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] font-semibold rounded-xl transition-all duration-200 hover:scale-105"
+          className="px-8 py-4 bg-(--surface) hover:bg-(--surface-hover) border border-(--border) font-semibold rounded-xl transition-all duration-200 hover:scale-105"
         >
           Join Room
         </button>
@@ -131,11 +131,11 @@ export default function Home() {
         ].map((feature, i) => (
           <div
             key={i}
-            className="text-center p-4 rounded-xl bg-[var(--surface)]/50 border border-[var(--border)]/50"
+            className="text-center p-4 rounded-xl bg-(--surface)/50 border border-(--border)/50"
           >
             <div className="text-2xl mb-2">{feature.icon}</div>
             <h3 className="font-semibold mb-1">{feature.title}</h3>
-            <p className="text-sm text-[var(--text-muted)]">{feature.desc}</p>
+            <p className="text-sm text-(--text-muted)">{feature.desc}</p>
           </div>
         ))}
       </motion.div>
@@ -147,7 +147,7 @@ export default function Home() {
             <h2 className="text-2xl font-bold mb-6">Create a Room</h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm text-[var(--text-muted)] mb-2">
+                <label className="block text-sm text-(--text-muted) mb-2">
                   Your Name
                 </label>
                 <input
@@ -155,7 +155,7 @@ export default function Home() {
                   value={userName}
                   onChange={(e) => setUserName(e.target.value)}
                   placeholder="Enter your name"
-                  className="w-full px-4 py-3 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:border-[var(--primary)] transition-colors"
+                  className="w-full px-4 py-3 bg-(--surface) border border-(--border) rounded-lg focus:outline-none focus:border-(--primary) transition-colors"
                   autoFocus
                   maxLength={20}
                 />
@@ -163,7 +163,7 @@ export default function Home() {
               <button
                 onClick={handleCreateRoom}
                 disabled={!userName.trim() || isLoading}
-                className="w-full py-3 bg-[var(--primary)] hover:bg-[var(--primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed text-black font-semibold rounded-lg transition-colors"
+                className="w-full py-3 bg-(--primary) hover:bg-(--primary-hover) disabled:opacity-50 disabled:cursor-not-allowed text-black font-semibold rounded-lg transition-colors"
               >
                 {isLoading ? "Creating..." : "Create Room"}
               </button>
@@ -179,7 +179,7 @@ export default function Home() {
             <h2 className="text-2xl font-bold mb-6">Join a Room</h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm text-[var(--text-muted)] mb-2">
+                <label className="block text-sm text-(--text-muted) mb-2">
                   Your Name
                 </label>
                 <input
@@ -187,13 +187,13 @@ export default function Home() {
                   value={userName}
                   onChange={(e) => setUserName(e.target.value)}
                   placeholder="Enter your name"
-                  className="w-full px-4 py-3 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:border-[var(--primary)] transition-colors"
+                  className="w-full px-4 py-3 bg-(--surface) border border-(--border) rounded-lg focus:outline-none focus:border-(--primary) transition-colors"
                   autoFocus
                   maxLength={20}
                 />
               </div>
               <div>
-                <label className="block text-sm text-[var(--text-muted)] mb-2">
+                <label className="block text-sm text-(--text-muted) mb-2">
                   Room ID
                 </label>
                 <input
@@ -201,8 +201,8 @@ export default function Home() {
                   value={roomId}
                   onChange={(e) => { setRoomId(e.target.value); setErrorMessage(null); }}
                   placeholder="Enter room ID"
-                  className={`w-full px-4 py-3 bg-[var(--surface)] border rounded-lg focus:outline-none transition-colors ${
-                    errorMessage ? "border-red-500" : "border-[var(--border)] focus:border-[var(--primary)]"
+                  className={`w-full px-4 py-3 bg-(--surface) border rounded-lg focus:outline-none transition-colors ${
+                    errorMessage ? "border-red-500" : "border-(--border) focus:border-(--primary)"
                   }`}
                   maxLength={20}
                 />
@@ -228,7 +228,7 @@ export default function Home() {
               <button
                 onClick={handleJoinRoom}
                 disabled={!userName.trim() || !roomId.trim() || isLoading}
-                className="w-full py-3 bg-[var(--primary)] hover:bg-[var(--primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed text-black font-semibold rounded-lg transition-colors"
+                className="w-full py-3 bg-(--primary) hover:bg-(--primary-hover) disabled:opacity-50 disabled:cursor-not-allowed text-black font-semibold rounded-lg transition-colors"
               >
                 {isLoading ? "Checking..." : "Join Room"}
               </button>
@@ -260,12 +260,12 @@ function Modal({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
         transition={{ duration: 0.2 }}
-        className="bg-[var(--background)] border border-[var(--border)] rounded-2xl p-6 w-full max-w-md"
+        className="bg-(--background) border border-(--border) rounded-2xl p-6 w-full max-w-md"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-[var(--text-muted)] hover:text-white transition-colors"
+          className="absolute top-4 right-4 text-(--text-muted) hover:text-white transition-colors"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
