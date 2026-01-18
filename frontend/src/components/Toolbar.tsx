@@ -6,6 +6,7 @@ import { useWhiteboardStore } from "@/store/whiteboard";
 import { getSocket } from "@/lib/socket";
 import { Tool } from "@/lib/types";
 import { TEXT_FONTS, TEXT_SIZE_RANGE } from "@/lib/typography";
+import { ClearBoardModal } from "./ClearBoardModal";
 
 const COLORS = [
   "#000000", "#FFFFFF", "#FF6B6B", "#4ECDC4", 
@@ -17,6 +18,7 @@ const THICKNESSES = [2, 4, 6, 10, 16];
 
 export function Toolbar() {
   const [showSettings, setShowSettings] = useState(false);
+  const [showClearModal, setShowClearModal] = useState(false);
   
   const {
     tool,
@@ -40,9 +42,11 @@ export function Toolbar() {
 
   const handleClearBoard = () => {
     if (role !== "host") return;
-    if (confirm("Are you sure you want to clear the board? This cannot be undone.")) {
-      getSocket().emit("board:clear");
-    }
+    setShowClearModal(true);
+  };
+
+  const handleConfirmClear = () => {
+    getSocket().emit("board:clear");
   };
 
   const tools: { id: Tool; icon: React.ReactNode; label: string }[] = [
@@ -68,7 +72,9 @@ export function Toolbar() {
       id: "text",
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
+          <rect x="3" y="4" width="20" height="14" rx="1.5" strokeWidth="2" />
+          <text x="10" y="11.5" fontSize="12" fontWeight="200" fill="currentColor" textAnchor="middle" dominantBaseline="middle" fontFamily="system-ui, -apple-system, sans-serif">A</text>
+          <path strokeLinecap="round" strokeWidth="2.5" d="M17.5 2v20" />
         </svg>
       ),
       label: "Text",
@@ -87,7 +93,7 @@ export function Toolbar() {
           <button
             key={t.id}
             onClick={() => setTool(t.id)}
-            className={`p-3 rounded-xl transition-all duration-150 ${
+            className={`p-3 rounded-xl transition-all duration-150 cursor-pointer flex items-center justify-center ${
               tool === t.id
                 ? "bg-(--primary) text-black"
                 : "hover:bg-(--surface-hover) text-(--text-muted) hover:text-white"
@@ -273,8 +279,8 @@ export function Toolbar() {
           <div className="w-full h-px bg-(--border)" />
           <button
             onClick={handleClearBoard}
-            className="p-3 rounded-xl text-red-400 hover:bg-red-500/20 transition-colors"
-            title="Clear Board (Host only)"
+            className="p-3 rounded-xl text-red-400 hover:bg-red-500/20 transition-colors flex items-center justify-center"
+            title="Clear Board"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -289,14 +295,14 @@ export function Toolbar() {
       <div className="relative">
         <button
           onClick={() => setShowSettings(!showSettings)}
-          className={`p-3 rounded-xl transition-all duration-150 ${
+          className={`p-3 rounded-xl transition-all duration-150 flex items-center justify-center w-full ${
             showSettings
               ? "bg-(--primary) text-black"
               : "hover:bg-(--surface-hover) text-(--text-muted) hover:text-white"
           }`}
           title="Settings"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
@@ -337,6 +343,13 @@ export function Toolbar() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Clear Board Confirmation Modal */}
+      <ClearBoardModal
+        isOpen={showClearModal}
+        onClose={() => setShowClearModal(false)}
+        onConfirm={handleConfirmClear}
+      />
     </motion.div>
   );
 }
