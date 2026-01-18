@@ -149,7 +149,7 @@ export function Toolbar() {
                 </span>
                 <input
                   type="range"
-                  min="5"
+                  min="2"
                   max="50"
                   value={eraserSize}
                   onChange={(e) => setEraserSize(Number(e.target.value))}
