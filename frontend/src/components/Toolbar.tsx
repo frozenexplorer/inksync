@@ -6,6 +6,7 @@ import { useWhiteboardStore } from "@/store/whiteboard";
 import { getSocket } from "@/lib/socket";
 import { Tool } from "@/lib/types";
 import { TEXT_FONTS, TEXT_SIZE_RANGE } from "@/lib/typography";
+import { ClearBoardModal } from "./ClearBoardModal";
 
 const COLORS = [
   "#000000", "#FFFFFF", "#FF6B6B", "#4ECDC4", 
@@ -17,6 +18,7 @@ const THICKNESSES = [2, 4, 6, 10, 16];
 
 export function Toolbar() {
   const [showSettings, setShowSettings] = useState(false);
+  const [showClearModal, setShowClearModal] = useState(false);
   
   const {
     tool,
@@ -40,9 +42,11 @@ export function Toolbar() {
 
   const handleClearBoard = () => {
     if (role !== "host") return;
-    if (confirm("Are you sure you want to clear the board? This cannot be undone.")) {
-      getSocket().emit("board:clear");
-    }
+    setShowClearModal(true);
+  };
+
+  const handleConfirmClear = () => {
+    getSocket().emit("board:clear");
   };
 
   const tools: { id: Tool; icon: React.ReactNode; label: string }[] = [
@@ -68,7 +72,9 @@ export function Toolbar() {
       id: "text",
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
+          <rect x="3" y="4" width="20" height="14" rx="1.5" strokeWidth="2" />
+          <text x="10" y="11.5" fontSize="12" fontWeight="200" fill="currentColor" textAnchor="middle" dominantBaseline="middle" fontFamily="system-ui, -apple-system, sans-serif">A</text>
+          <path strokeLinecap="round" strokeWidth="2.5" d="M17.5 2v20" />
         </svg>
       ),
       label: "Text",
@@ -87,7 +93,7 @@ export function Toolbar() {
           <button
             key={t.id}
             onClick={() => setTool(t.id)}
-            className={`p-3 rounded-xl transition-all duration-150 ${
+            className={`p-3 rounded-xl transition-all duration-150 cursor-pointer ${
               tool === t.id
                 ? "bg-(--primary) text-black"
                 : "hover:bg-(--surface-hover) text-(--text-muted) hover:text-white"
@@ -337,6 +343,13 @@ export function Toolbar() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Clear Board Confirmation Modal */}
+      <ClearBoardModal
+        isOpen={showClearModal}
+        onClose={() => setShowClearModal(false)}
+        onConfirm={handleConfirmClear}
+      />
     </motion.div>
   );
 }
