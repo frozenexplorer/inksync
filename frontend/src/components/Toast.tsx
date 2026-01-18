@@ -64,7 +64,7 @@ function Toast({ toast, onDismiss }: { toast: ToastMessage; onDismiss: () => voi
 
         {/* Message */}
         <div className="flex-1 min-w-0">
-          <p className="text-sm text-white font-medium">{toast.message}</p>
+          <p className="text-sm text-white font-medium">{toast.message ?? "Something went wrong"}</p>
         </div>
 
         {/* Progress bar */}
