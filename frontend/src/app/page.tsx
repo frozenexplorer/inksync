@@ -396,7 +396,6 @@ export default function Home() {
   // Keyboard shortcuts
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-
       // Don't trigger shortcuts when typing in inputs
       const target = e.target as HTMLElement | null;
       if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.isContentEditable) {
@@ -453,10 +452,7 @@ export default function Home() {
         exit: { y: 420, opacity: 0 },
       };
 
-  const heroPhrases = useMemo(
-    () => ["teams", "classrooms", "workshops", "study groups"],
-    []
-  );
+  const heroPhrases = useMemo(() => ["teams", "classrooms", "workshops", "study groups"], []);
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-(--background) flex flex-col relative">
@@ -499,7 +495,8 @@ export default function Home() {
                 Home
               </span>
             </div>
-            <div className="text-xs text-(--text-muted) truncate">Realtime rooms • clean tools • built for focus</div>
+            {/* CHANGED: Built -> Built */}
+            <div className="text-xs text-(--text-muted) truncate">Realtime rooms • Clean tools • Built for focus</div>
           </div>
         </div>
 
@@ -588,11 +585,12 @@ export default function Home() {
                 transition={{ duration: 0.55, ease: "easeOut" }}
                 className="relative"
               >
+                {/* CHANGED: Realtime -> Realtime, Rooms -> Rooms */}
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-(--border) bg-(--surface)/65 backdrop-blur-xl text-xs text-(--text-muted)">
                   <span className="w-1.5 h-1.5 rounded-full bg-(--primary) shadow-[0_0_0_6px_rgba(255,255,255,0.05)]" />
                   <span className="font-medium text-(--text)">Realtime</span>
                   <span>•</span>
-                  <span>rooms you can share instantly</span>
+                  <span>Rooms you can share instantly</span>
                 </div>
 
                 {/* UPDATED HERO TITLE + TYPEWRITER */}
@@ -601,13 +599,7 @@ export default function Home() {
                   <span className="block">
                     for{" "}
                     <span className="relative inline-flex items-baseline">
-                      <Typewriter
-                        words={heroPhrases}
-                        className="text-(--text)"
-                        typingMs={52}
-                        deletingMs={30}
-                        pauseMs={920}
-                      />
+                      <Typewriter words={heroPhrases} className="text-(--text)" typingMs={52} deletingMs={30} pauseMs={920} />
                       <span className="absolute -bottom-1 left-0 right-0 h-[3px] bg-(--primary)/60 blur-[1px] rounded-full" />
                     </span>
                     .
@@ -672,7 +664,7 @@ export default function Home() {
                       ) : (
                         <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-200 text-sm">
                           <span className="text-base">⚠</span>
-                          Guest mode — boards expire in 24 hours
+                          Guest mode — Boards expire in 24 hours
                         </span>
                       )}
                     </div>
@@ -834,7 +826,8 @@ export default function Home() {
 
                 <div className="mt-6 text-xs text-[var(--text-muted)] flex items-center justify-between">
                   <span>© {new Date().getFullYear()} InkSync</span>
-                  <span className="hidden sm:inline">Minimal, professional, fast</span>
+                  {/* CHANGED: Professional + Fast capitalized */}
+                  <span className="hidden sm:inline">Minimal, Professional, Fast</span>
                 </div>
               </motion.div>
             </div>
@@ -899,7 +892,7 @@ export default function Home() {
                 <div className="flex items-center gap-2">
                   <div className="hidden sm:flex items-center gap-2 text-[10px] text-[var(--text-muted)]">
                     <Kbd>{isMac ? "⌘K" : "Ctrl K"}</Kbd>
-                    <span>toggle</span>
+                    {/* CHANGED: remove "toggle" word */}
                   </div>
 
                   <button
@@ -949,8 +942,6 @@ export default function Home() {
                       <li>Open the whiteboard and collaborate live.</li>
                     </ol>
                   </div>
-
-                  {/* REMOVED: the NEXT_PUBLIC_API_URL tip card */}
                 </div>
               )}
 
@@ -1024,7 +1015,9 @@ export default function Home() {
                   </div>
 
                   <div className="rounded-3xl border border-dashed border-[var(--border)] bg-[var(--surface-hover)]/45 p-4">
-                    <div className="text-xs text-[var(--text-muted)]">Pro tip: keep your mouse hand free — most navigation is faster with shortcuts.</div>
+                    <div className="text-xs text-[var(--text-muted)]">
+                      Pro tip: keep your mouse hand free — most navigation is faster with shortcuts.
+                    </div>
                   </div>
                 </div>
               )}
