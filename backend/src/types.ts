@@ -40,9 +40,22 @@ export interface ChatMessage {
   timestamp: number;
 }
 
+export type ShapeType = 'rectangle' | 'ellipse' | 'line' | 'arrow';
+
+export interface ShapeItem {
+  id: string;
+  type: ShapeType;
+  start: Point;
+  end: Point;
+  color: string;
+  thickness: number;
+  authorId: string;
+}
+
 export interface WhiteboardState {
   strokes: Record<string, Stroke>;
   texts: Record<string, TextItem>;
+  shapes: Record<string, ShapeItem>;
   users: Record<string, User>;
   messages: ChatMessage[];
 }

@@ -5,7 +5,7 @@ import { AnimatePresence } from "framer-motion";
 import { useWhiteboardStore } from "@/store/whiteboard";
 import { getSocket } from "@/lib/socket";
 import { nanoid } from "nanoid";
-import { Point, Stroke, TextItem } from "@/lib/types";
+import { Point, Stroke, TextItem, ShapeItem, Tool } from "@/lib/types";
 import { clampTextSize, DEFAULT_TEXT_FONT_FAMILY } from "@/lib/typography";
 import { TextOverlay } from "./TextOverlay";
 import { CursorTooltips } from "./CursorTooltips";
@@ -41,27 +41,85 @@ const rotatePoint = (point: Point, radians: number): Point => ({
 });
 
 const TRANSFORM_EMIT_INTERVAL_MS = 33;
+const ZOOM_MIN = 0.25;
+const ZOOM_MAX = 3;
+const ZOOM_STEP = 0.1;
+
+// Helper for shape hit testing
+const hitTestShape = (shape: ShapeItem, point: Point, radius: number): boolean => {
+  const padding = shape.thickness / 2 + radius;
+  const x = Math.min(shape.start.x, shape.end.x) - padding;
+  const y = Math.min(shape.start.y, shape.end.y) - padding;
+  const w = Math.abs(shape.start.x - shape.end.x) + padding * 2;
+  const h = Math.abs(shape.start.y - shape.end.y) + padding * 2;
+
+  // 1. Broad Phase: Bounding Box
+  if (point.x < x || point.x > x + w || point.y < y || point.y > y + h) {
+    return false;
+  }
+
+  // 2. Narrow Phase by Type
+  if (shape.type === "rectangle") {
+    return true;
+  } else if (shape.type === "ellipse") {
+    const cx = shape.start.x + (shape.end.x - shape.start.x) / 2;
+    const cy = shape.start.y + (shape.end.y - shape.start.y) / 2;
+    const rx = Math.abs(shape.end.x - shape.start.x) / 2 + padding;
+    const ry = Math.abs(shape.end.y - shape.start.y) / 2 + padding;
+    // (x-cx)^2/rx^2 + (y-cy)^2/ry^2 <= 1
+    const val = Math.pow(point.x - cx, 2) / (rx * rx) + Math.pow(point.y - cy, 2) / (ry * ry);
+    return val <= 1;
+  } else if (shape.type === "line" || shape.type === "arrow") {
+    const { start, end } = shape;
+    const l2 = Math.pow(end.x - start.x, 2) + Math.pow(end.y - start.y, 2);
+    if (l2 === 0) return Math.hypot(point.x - start.x, point.y - start.y) <= radius;
+
+    let t = ((point.x - start.x) * (end.x - start.x) + (point.y - start.y) * (end.y - start.y)) / l2;
+    t = Math.max(0, Math.min(1, t));
+    const px = start.x + t * (end.x - start.x);
+    const py = start.y + t * (end.y - start.y);
+    const dist = Math.hypot(point.x - px, point.y - py);
+    return dist <= radius + shape.thickness / 2;
+  }
+
+  return false;
+};
 
 export function Canvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  const [panOffset, setPanOffset] = useState<Point>({ x: 0, y: 0 });
+  const panOffsetRef = useRef(panOffset);
+  const [zoom, setZoom] = useState(1);
+  const zoomRef = useRef(1);
+  const [isPanning, setIsPanning] = useState(false);
   const [eraserCursor, setEraserCursor] = useState<Point | null>(null);
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
   const [hoveredTextId, setHoveredTextId] = useState<string | null>(null);
   const isDrawing = useRef(false);
+  const isPanningRef = useRef(false);
+  const panStartRef = useRef<{ origin: Point; offset: Point; pointerId: number } | null>(null);
+  const lastNonPanToolRef = useRef<Tool>("pen");
   const transformRef = useRef<TransformState | null>(null);
   const lastPoint = useRef<Point | null>(null);
   const lastCursorEmit = useRef(0);
   const eraseFrameRef = useRef<number | null>(null);
   const pendingErasePointRef = useRef<Point | null>(null);
-  
+  const [currentShape, setCurrentShape] = useState<{ start: Point; end: Point } | null>(null);
+
   const {
     strokes,
     texts,
+    shapes,
     currentStroke,
     tool,
     penColor,
+    penThickness,
+    shapeType,
+    fill,
+    dash,
+    opacity,
     fontSize,
     fontFamily,
     userId,
@@ -71,6 +129,7 @@ export function Canvas() {
     startStroke,
     extendStroke,
     finishStroke,
+    setTool,
     setTextInputPosition,
     removeStrokes,
     applyStrokeChanges,
@@ -78,6 +137,9 @@ export function Canvas() {
     addText,
     updateText,
     removeText,
+    addShape,
+    updateShape,
+    removeShape,
   } = useWhiteboardStore();
 
   const textsRef = useRef(texts);
@@ -90,6 +152,20 @@ export function Canvas() {
   useEffect(() => {
     updateTextRef.current = updateText;
   }, [updateText]);
+
+  useEffect(() => {
+    panOffsetRef.current = panOffset;
+  }, [panOffset]);
+
+  useEffect(() => {
+    zoomRef.current = zoom;
+  }, [zoom]);
+
+  useEffect(() => {
+    if (tool !== "pan") {
+      lastNonPanToolRef.current = tool;
+    }
+  }, [tool]);
 
   // Resize handler using ResizeObserver for reliable dimension updates
   useEffect(() => {
@@ -129,11 +205,11 @@ export function Canvas() {
     ctx.lineJoin = "round";
 
     ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
-    
+
     for (let i = 1; i < stroke.points.length; i++) {
       ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
     }
-    
+
     ctx.stroke();
   }, []);
 
@@ -190,18 +266,93 @@ export function Canvas() {
     ctx.restore();
   }, []);
 
+  const drawShape = useCallback((ctx: CanvasRenderingContext2D, shape: ShapeItem | { type: string; start: Point; end: Point; color: string; thickness: number; fill?: boolean; dash?: string; opacity?: number }) => {
+    ctx.save();
+    ctx.strokeStyle = shape.color;
+    ctx.fillStyle = shape.color; // For fill
+    ctx.lineWidth = shape.thickness;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.globalAlpha = shape.opacity ?? 1;
+
+    if (shape.dash === "dashed") {
+      ctx.setLineDash([shape.thickness * 2, shape.thickness * 2]);
+    } else if (shape.dash === "dotted") {
+      ctx.setLineDash([shape.thickness, shape.thickness]);
+    } else {
+      ctx.setLineDash([]);
+    }
+
+    const { start, end } = shape;
+    const width = end.x - start.x;
+    const height = end.y - start.y;
+
+    ctx.beginPath();
+
+    if (shape.type === "rectangle") {
+      if (shape.fill) {
+        ctx.globalAlpha = (shape.opacity ?? 1) * 0.2; // lighter fill
+        ctx.fillRect(start.x, start.y, width, height);
+        ctx.globalAlpha = shape.opacity ?? 1;
+      }
+      ctx.strokeRect(start.x, start.y, width, height);
+    } else if (shape.type === "ellipse") {
+      const centerX = start.x + width / 2;
+      const centerY = start.y + height / 2;
+      const radiusX = Math.abs(width / 2);
+      const radiusY = Math.abs(height / 2);
+      ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, 2 * Math.PI);
+      if (shape.fill) {
+        ctx.globalAlpha = (shape.opacity ?? 1) * 0.2;
+        ctx.fill();
+        ctx.globalAlpha = shape.opacity ?? 1;
+      }
+      ctx.stroke();
+    } else if (shape.type === "line") {
+      ctx.moveTo(start.x, start.y);
+      ctx.lineTo(end.x, end.y);
+      ctx.stroke();
+    } else if (shape.type === "arrow") {
+      // Draw line
+      ctx.moveTo(start.x, start.y);
+      ctx.lineTo(end.x, end.y);
+      ctx.stroke();
+
+      // Draw arrowhead
+      const angle = Math.atan2(end.y - start.y, end.x - start.x);
+      const headLength = Math.max(10, shape.thickness * 3);
+      ctx.setLineDash([]); // Arrowhead always solid
+      ctx.beginPath();
+      ctx.moveTo(end.x, end.y);
+      ctx.lineTo(
+        end.x - headLength * Math.cos(angle - Math.PI / 6),
+        end.y - headLength * Math.sin(angle - Math.PI / 6)
+      );
+      ctx.moveTo(end.x, end.y);
+      ctx.lineTo(
+        end.x - headLength * Math.cos(angle + Math.PI / 6),
+        end.y - headLength * Math.sin(angle + Math.PI / 6)
+      );
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }, []);
+
   // Draw all strokes and texts
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
-    
+
     // Don't draw if dimensions aren't set yet
     if (canvas.width === 0 || canvas.height === 0) return;
 
     // Clear canvas with white background
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.setTransform(zoom, 0, 0, zoom, panOffset.x, panOffset.y);
 
     // Draw all finalized strokes
     Object.values(strokes).forEach((stroke) => {
@@ -233,17 +384,47 @@ export function Canvas() {
     Object.values(texts).forEach((text) => {
       drawText(ctx, text);
     });
+
+    // Draw all finalized shapes
+    Object.values(shapes).forEach((shape) => {
+      drawShape(ctx, shape);
+    });
+
+    // Draw current shape (being drawn)
+    if (currentShape) {
+      drawShape(ctx, {
+        type: shapeType,
+        start: currentShape.start,
+        end: currentShape.end,
+        color: penColor,
+        thickness: penThickness,
+        fill,
+        dash,
+        opacity,
+      });
+    }
   }, [
     strokes,
     texts,
+    shapes,
     currentStroke,
+    currentShape,
+    shapeType,
     userId,
     tool,
+    penColor,
+    penThickness,
+    fill,
+    dash,
+    opacity,
     textInputPosition,
     hoveredTextId,
     selectedTextId,
+    panOffset,
+    zoom,
     drawStroke,
     drawText,
+    drawShape,
     drawHoverHighlight,
   ]);
 
@@ -255,7 +436,7 @@ export function Canvas() {
   }, [draw, dimensions]);
 
   useEffect(() => {
-    if (tool === "eraser") {
+    if (tool === "eraser" || tool === "pan") {
       setSelectedTextId(null);
       setHoveredTextId(null);
     }
@@ -391,13 +572,23 @@ export function Canvas() {
     };
   }, []);
 
+  const toWorldPoint = useCallback((point: Point): Point => {
+    const currentZoom = zoomRef.current || 1;
+    return {
+      x: (point.x - panOffsetRef.current.x) / currentZoom,
+      y: (point.y - panOffsetRef.current.y) / currentZoom,
+    };
+  }, []);
+
   const getPointerPosition = (e: React.PointerEvent): Point => {
-    return getPointFromClient(e.clientX, e.clientY);
+    const screenPoint = getPointFromClient(e.clientX, e.clientY);
+    return toWorldPoint(screenPoint);
   };
 
   const getWindowPointerPosition = useCallback((event: PointerEvent): Point => {
-    return getPointFromClient(event.clientX, event.clientY);
-  }, [getPointFromClient]);
+    const screenPoint = getPointFromClient(event.clientX, event.clientY);
+    return toWorldPoint(screenPoint);
+  }, [getPointFromClient, toWorldPoint]);
 
   useEffect(() => {
     const handleDoubleClick = (event: MouseEvent) => {
@@ -413,7 +604,8 @@ export function Canvas() {
         return;
       }
 
-      const point = getPointFromClient(event.clientX, event.clientY);
+      const screenPoint = getPointFromClient(event.clientX, event.clientY);
+      const point = toWorldPoint(screenPoint);
       const hitTextId = findTextAtPoint(point);
       if (!hitTextId) {
         stopTransformRef.current();
@@ -424,14 +616,14 @@ export function Canvas() {
 
     window.addEventListener("dblclick", handleDoubleClick);
     return () => window.removeEventListener("dblclick", handleDoubleClick);
-  }, [findTextAtPoint, getPointFromClient, selectedTextId, hoveredTextId, textInputPosition]);
+  }, [findTextAtPoint, getPointFromClient, toWorldPoint, selectedTextId, hoveredTextId, textInputPosition]);
 
   // Emit cursor position (throttled to ~30fps)
   const emitCursorPosition = useCallback((point: Point, isActive: boolean) => {
     const now = Date.now();
     if (now - lastCursorEmit.current < 33) return; // Throttle to ~30fps
     lastCursorEmit.current = now;
-    
+
     const socket = getSocket();
     if (socket.connected) {
       socket.emit("cursor:move", { position: point, isActive });
@@ -466,172 +658,189 @@ export function Canvas() {
           socket.emit("erase:strokes", strokesToErase);
         }
       }
-      return;
-    }
+    } else {
+      // Pixel Eraser for Strokes (existing logic)
+      const epsilon = 1e-6;
+      const isInside = (p: Point) => {
+        const dx = p.x - point.x;
+        const dy = p.y - point.y;
+        return dx * dx + dy * dy <= radiusSq;
+      };
 
-    const epsilon = 1e-6;
-    const isInside = (p: Point) => {
-      const dx = p.x - point.x;
-      const dy = p.y - point.y;
-      return dx * dx + dy * dy <= radiusSq;
-    };
+      const addPointUnique = (segment: Point[], p: Point) => {
+        const last = segment[segment.length - 1];
+        if (!last || Math.abs(last.x - p.x) > epsilon || Math.abs(last.y - p.y) > epsilon) {
+          segment.push(p);
+        }
+      };
 
-    const addPointUnique = (segment: Point[], p: Point) => {
-      const last = segment[segment.length - 1];
-      if (!last || Math.abs(last.x - p.x) > epsilon || Math.abs(last.y - p.y) > epsilon) {
-        segment.push(p);
-      }
-    };
+      const removedIds: string[] = [];
+      const newStrokes: Stroke[] = [];
 
-    const removedIds: string[] = [];
-    const newStrokes: Stroke[] = [];
+      for (const stroke of strokeList) {
+        const points = stroke.points;
+        if (points.length < 2) continue;
 
-    for (const stroke of strokeList) {
-      const points = stroke.points;
-      if (points.length < 2) continue;
+        let currentSegment: Point[] = [];
+        const segments: Point[][] = [];
+        let didErase = false;
 
-      let currentSegment: Point[] = [];
-      const segments: Point[][] = [];
-      let didErase = false;
+        for (let i = 0; i < points.length - 1; i++) {
+          const p1 = points[i];
+          const p2 = points[i + 1];
+          const inside1 = isInside(p1);
+          const inside2 = isInside(p2);
 
-      for (let i = 0; i < points.length - 1; i++) {
-        const p1 = points[i];
-        const p2 = points[i + 1];
-        const inside1 = isInside(p1);
-        const inside2 = isInside(p2);
+          const dx = p2.x - p1.x;
+          const dy = p2.y - p1.y;
+          const a = dx * dx + dy * dy;
 
-        const dx = p2.x - p1.x;
-        const dy = p2.y - p1.y;
-        const a = dx * dx + dy * dy;
+          let tValues: number[] = [];
+          if (a > epsilon) {
+            const fx = p1.x - point.x;
+            const fy = p1.y - point.y;
+            const b = 2 * (fx * dx + fy * dy);
+            const c = fx * fx + fy * fy - radiusSq;
+            const discriminant = b * b - 4 * a * c;
 
-        let tValues: number[] = [];
-        if (a > epsilon) {
-          const fx = p1.x - point.x;
-          const fy = p1.y - point.y;
-          const b = 2 * (fx * dx + fy * dy);
-          const c = fx * fx + fy * fy - radiusSq;
-          const discriminant = b * b - 4 * a * c;
-
-          if (discriminant > epsilon) {
-            const sqrtDisc = Math.sqrt(discriminant);
-            const t1 = (-b - sqrtDisc) / (2 * a);
-            const t2 = (-b + sqrtDisc) / (2 * a);
-            if (t1 > 0 && t1 < 1) tValues.push(t1);
-            if (t2 > 0 && t2 < 1) tValues.push(t2);
-          } else if (Math.abs(discriminant) <= epsilon) {
-            const t = -b / (2 * a);
-            if (t > 0 && t < 1 && inside1 !== inside2) {
-              tValues.push(t);
+            if (discriminant > epsilon) {
+              const sqrtDisc = Math.sqrt(discriminant);
+              const t1 = (-b - sqrtDisc) / (2 * a);
+              const t2 = (-b + sqrtDisc) / (2 * a);
+              if (t1 > 0 && t1 < 1) tValues.push(t1);
+              if (t2 > 0 && t2 < 1) tValues.push(t2);
+            } else if (Math.abs(discriminant) <= epsilon) {
+              const t = -b / (2 * a);
+              if (t > 0 && t < 1 && inside1 !== inside2) {
+                tValues.push(t);
+              }
             }
           }
-        }
 
-        if (tValues.length === 0) {
-          if (!inside1 && !inside2) {
-            if (currentSegment.length === 0) {
-              addPointUnique(currentSegment, p1);
-            }
-            addPointUnique(currentSegment, p2);
-          } else if (inside1 && inside2) {
-            if (currentSegment.length >= 2) {
-              segments.push(currentSegment);
-            }
-            currentSegment = [];
-            didErase = true;
-          } else {
-            if (!inside1 && inside2) {
+          if (tValues.length === 0) {
+            if (!inside1 && !inside2) {
               if (currentSegment.length === 0) {
                 addPointUnique(currentSegment, p1);
               }
-              if (currentSegment.length >= 2) {
-                segments.push(currentSegment);
-              }
-              currentSegment = [];
-              didErase = true;
-            } else if (inside1 && !inside2) {
-              if (currentSegment.length >= 2) {
-                segments.push(currentSegment);
-              }
-              currentSegment = [];
-              didErase = true;
               addPointUnique(currentSegment, p2);
+            } else if (inside1 && inside2) {
+              if (currentSegment.length >= 2) {
+                segments.push(currentSegment);
+              }
+              currentSegment = [];
+              didErase = true;
+            } else {
+              if (!inside1 && inside2) {
+                if (currentSegment.length === 0) {
+                  addPointUnique(currentSegment, p1);
+                }
+                if (currentSegment.length >= 2) {
+                  segments.push(currentSegment);
+                }
+                currentSegment = [];
+                didErase = true;
+              } else if (inside1 && !inside2) {
+                if (currentSegment.length >= 2) {
+                  segments.push(currentSegment);
+                }
+                currentSegment = [];
+                didErase = true;
+                addPointUnique(currentSegment, p2);
+              }
             }
+            continue;
           }
+
+          tValues.sort((x, y) => x - y);
+          if (tValues.length === 2 && Math.abs(tValues[0] - tValues[1]) <= epsilon) {
+            tValues = [tValues[0]];
+          }
+
+          const ts = [0, ...tValues, 1];
+          let segmentInside = inside1;
+
+          for (let j = 0; j < ts.length - 1; j++) {
+            const tStart = ts[j];
+            const tEnd = ts[j + 1];
+
+            if (segmentInside) {
+              if (currentSegment.length >= 2) {
+                segments.push(currentSegment);
+              }
+              currentSegment = [];
+              didErase = true;
+            } else {
+              const startPoint = tStart === 0 ? p1 : {
+                x: p1.x + dx * tStart,
+                y: p1.y + dy * tStart,
+              };
+              const endPoint = tEnd === 1 ? p2 : {
+                x: p1.x + dx * tEnd,
+                y: p1.y + dy * tEnd,
+              };
+              if (currentSegment.length === 0) {
+                addPointUnique(currentSegment, startPoint);
+              } else {
+                addPointUnique(currentSegment, startPoint);
+              }
+              addPointUnique(currentSegment, endPoint);
+            }
+
+            segmentInside = !segmentInside;
+          }
+        }
+
+        if (currentSegment.length >= 2) {
+          segments.push(currentSegment);
+        }
+
+        if (!didErase) {
           continue;
         }
 
-        tValues.sort((x, y) => x - y);
-        if (tValues.length === 2 && Math.abs(tValues[0] - tValues[1]) <= epsilon) {
-          tValues = [tValues[0]];
+        removedIds.push(stroke.id);
+
+        for (const segment of segments) {
+          if (segment.length < 2) continue;
+          newStrokes.push({
+            id: nanoid(),
+            points: segment,
+            color: stroke.color,
+            thickness: stroke.thickness,
+            authorId: stroke.authorId,
+          });
         }
+      }
 
-        const ts = [0, ...tValues, 1];
-        let segmentInside = inside1;
-
-        for (let j = 0; j < ts.length - 1; j++) {
-          const tStart = ts[j];
-          const tEnd = ts[j + 1];
-
-          if (segmentInside) {
-            if (currentSegment.length >= 2) {
-              segments.push(currentSegment);
-            }
-            currentSegment = [];
-            didErase = true;
-          } else {
-            const startPoint = tStart === 0 ? p1 : {
-              x: p1.x + dx * tStart,
-              y: p1.y + dy * tStart,
-            };
-            const endPoint = tEnd === 1 ? p2 : {
-              x: p1.x + dx * tEnd,
-              y: p1.y + dy * tEnd,
-            };
-            if (currentSegment.length === 0) {
-              addPointUnique(currentSegment, startPoint);
-            } else {
-              addPointUnique(currentSegment, startPoint);
-            }
-            addPointUnique(currentSegment, endPoint);
+      if (removedIds.length > 0) {
+        applyStrokeChanges(removedIds, newStrokes);
+        const socket = getSocket();
+        if (socket.connected) {
+          socket.emit("erase:strokes", removedIds);
+          for (const stroke of newStrokes) {
+            socket.emit("stroke:add", stroke);
           }
-
-          segmentInside = !segmentInside;
         }
       }
+    }
 
-      if (currentSegment.length >= 2) {
-        segments.push(currentSegment);
-      }
+    // Checking for shapes to erase (in both modes)
+    const shapesToErase: string[] = [];
+    const shapeList = Object.values(shapes);
 
-      if (!didErase) {
-        continue;
-      }
-
-      removedIds.push(stroke.id);
-
-      for (const segment of segments) {
-        if (segment.length < 2) continue;
-        newStrokes.push({
-          id: nanoid(),
-          points: segment,
-          color: stroke.color,
-          thickness: stroke.thickness,
-          authorId: stroke.authorId,
-        });
+    for (const shape of shapeList) {
+      if (hitTestShape(shape, point, eraserSize / 2)) {
+        shapesToErase.push(shape.id);
       }
     }
 
-    if (removedIds.length === 0) return;
-
-    applyStrokeChanges(removedIds, newStrokes);
-
-    if (socket.connected) {
-      socket.emit("erase:strokes", removedIds);
-      for (const stroke of newStrokes) {
-        socket.emit("stroke:add", stroke);
+    if (shapesToErase.length > 0) {
+      shapesToErase.forEach(id => removeShape(id));
+      if (socket.connected) {
+        shapesToErase.forEach(id => socket.emit("shape:remove", id));
       }
     }
-  }, [strokes, eraserMode, eraserSize, removeStrokes, applyStrokeChanges]);
+  }, [strokes, shapes, eraserMode, eraserSize, removeStrokes, applyStrokeChanges, removeShape]);
 
   const performEraseRef = useRef(performErase);
   performEraseRef.current = performErase;
@@ -649,7 +858,7 @@ export function Canvas() {
     });
   }, []);
 
-  const stopTransformRef = useRef<() => void>(() => {});
+  const stopTransformRef = useRef<() => void>(() => { });
 
   const handleTransformMove = useCallback((event: PointerEvent) => {
     const transform = transformRef.current;
@@ -788,8 +997,27 @@ export function Canvas() {
   const handlePointerDown = (e: React.PointerEvent) => {
     // Don't handle if text input is already open
     if (textInputPosition) return;
-    
-    const point = getPointerPosition(e);
+
+    const screenPoint = getPointFromClient(e.clientX, e.clientY);
+    const point = toWorldPoint(screenPoint);
+    const shouldPan = e.button === 1 || (tool === "pan" && e.button === 0);
+
+    if (shouldPan) {
+      e.preventDefault();
+      setHoveredTextId(null);
+      setEraserCursor(null);
+      isDrawing.current = false;
+      lastPoint.current = null;
+      panStartRef.current = {
+        origin: screenPoint,
+        offset: panOffsetRef.current,
+        pointerId: e.pointerId,
+      };
+      isPanningRef.current = true;
+      setIsPanning(true);
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      return;
+    }
 
     if (tool === "pen") {
       const hitTextId = findTextAtPoint(point);
@@ -824,17 +1052,37 @@ export function Canvas() {
 
       setSelectedTextId(null);
       setTextInputPosition(point);
+    } else if (tool === "shape") {
+      isDrawing.current = true;
+      lastPoint.current = point;
+      setCurrentShape({ start: point, end: point });
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
     }
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
-    const point = getPointerPosition(e);
-    
+    const screenPoint = getPointFromClient(e.clientX, e.clientY);
+    const point = toWorldPoint(screenPoint);
+
+    if (isPanningRef.current) {
+      const panStart = panStartRef.current;
+      if (!panStart) return;
+      const dx = screenPoint.x - panStart.origin.x;
+      const dy = screenPoint.y - panStart.origin.y;
+      const nextOffset = {
+        x: panStart.offset.x + dx,
+        y: panStart.offset.y + dy,
+      };
+      panOffsetRef.current = nextOffset;
+      setPanOffset(nextOffset);
+      return;
+    }
+
     // Update eraser cursor position for visual indicator
     if (tool === "eraser") {
-      setEraserCursor(point);
+      setEraserCursor(screenPoint);
     }
-    
+
     if (!isDrawing.current) {
       if ((tool === "text" || tool === "pen") && !textInputPosition && !transformRef.current) {
         const hitTextId = findTextAtPoint(point);
@@ -851,15 +1099,19 @@ export function Canvas() {
       extendStroke(point);
       lastPoint.current = point;
       emitCursorPosition(point, true);
-    } else if (tool === "eraser") {
-      scheduleErase(point);
       emitCursorPosition(point, true);
+    } else if (tool === "shape" && currentShape) {
+      setCurrentShape({ ...currentShape, end: point });
+      // Throttle shape updates if needed, but for local drawing 60fps is fine
     }
   };
-  
+
   const handlePointerLeaveCanvas = (e: React.PointerEvent) => {
     setEraserCursor(null);
     setHoveredTextId(null);
+    if (isPanningRef.current) {
+      return;
+    }
     if (isDrawing.current) {
       const point = getPointerPosition(e);
       isDrawing.current = false;
@@ -878,18 +1130,46 @@ export function Canvas() {
           addStroke(fullStroke);
           getSocket().emit("stroke:add", fullStroke);
         }
+      } else if (tool === "shape" && currentShape) {
+        if (userId) {
+          const shape: ShapeItem = {
+            id: nanoid(),
+            type: shapeType,
+            start: currentShape.start,
+            end: currentShape.end,
+            color: penColor,
+            thickness: penThickness,
+            fill,
+            dash,
+            opacity,
+            authorId: userId,
+          };
+          addShape(shape);
+          getSocket().emit("shape:add", shape);
+        }
+        setCurrentShape(null);
       }
     }
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
+    if (isPanningRef.current) {
+      const panStart = panStartRef.current;
+      isPanningRef.current = false;
+      panStartRef.current = null;
+      setIsPanning(false);
+      if (panStart) {
+        (e.target as HTMLElement).releasePointerCapture(panStart.pointerId);
+      }
+      return;
+    }
     if (!isDrawing.current) return;
-    
+
     const point = getPointerPosition(e);
     isDrawing.current = false;
     lastPoint.current = null;
     (e.target as HTMLElement).releasePointerCapture(e.pointerId);
-    
+
     // Emit that drawing stopped
     emitCursorPosition(point, false);
 
@@ -904,6 +1184,24 @@ export function Canvas() {
         addStroke(fullStroke);
         getSocket().emit("stroke:add", fullStroke);
       }
+    } else if (tool === "shape" && currentShape) {
+      if (userId) {
+        const shape: ShapeItem = {
+          id: nanoid(),
+          type: shapeType,
+          start: currentShape.start,
+          end: currentShape.end,
+          color: penColor,
+          thickness: penThickness,
+          fill,
+          dash,
+          opacity,
+          authorId: userId,
+        };
+        addShape(shape);
+        getSocket().emit("shape:add", shape);
+      }
+      setCurrentShape(null);
     }
   };
 
@@ -926,13 +1224,13 @@ export function Canvas() {
 
     // Add locally first for immediate feedback
     addText(text);
-    
+
     // Then sync to server
     const socket = getSocket();
     if (socket.connected) {
       socket.emit("text:add", text);
     }
-    
+
     setTextInputPosition(null);
   };
 
@@ -954,6 +1252,16 @@ export function Canvas() {
       rotation: selectedLayout.rotation,
     };
   }, [selectedLayout, selectedText]);
+  const selectionBoxScreen = useMemo(() => {
+    if (!selectionBox) return null;
+    return {
+      ...selectionBox,
+      left: selectionBox.left * zoom + panOffset.x,
+      top: selectionBox.top * zoom + panOffset.y,
+      width: selectionBox.width * zoom,
+      height: selectionBox.height * zoom,
+    };
+  }, [panOffset, selectionBox, zoom]);
 
   const resizeHandleSize = 10;
   const rotateHandleSize = 12;
@@ -996,6 +1304,14 @@ export function Canvas() {
     };
   }, [selectionHandles]);
 
+  const textOverlayPosition = useMemo(() => {
+    if (!textInputPosition) return null;
+    return {
+      x: textInputPosition.x * zoom + panOffset.x,
+      y: textInputPosition.y * zoom + panOffset.y,
+    };
+  }, [panOffset, textInputPosition, zoom]);
+
   const handleDeleteSelectedText = () => {
     if (!selectedText) return;
     removeText(selectedText.id);
@@ -1005,6 +1321,61 @@ export function Canvas() {
     if (socket.connected) {
       socket.emit("text:remove", selectedText.id);
     }
+  };
+
+  const clampZoom = (value: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, value));
+
+  const updateZoom = (nextZoom: number) => {
+    const currentZoom = zoomRef.current || 1;
+    const clampedZoom = clampZoom(nextZoom);
+    if (Math.abs(clampedZoom - currentZoom) < 0.001) return;
+
+    const anchor = {
+      x: dimensions.width / 2,
+      y: dimensions.height / 2,
+    };
+    const currentPan = panOffsetRef.current;
+    const worldAtAnchor = {
+      x: (anchor.x - currentPan.x) / currentZoom,
+      y: (anchor.y - currentPan.y) / currentZoom,
+    };
+    const nextPan = {
+      x: anchor.x - worldAtAnchor.x * clampedZoom,
+      y: anchor.y - worldAtAnchor.y * clampedZoom,
+    };
+
+    panOffsetRef.current = nextPan;
+    setPanOffset(nextPan);
+    zoomRef.current = clampedZoom;
+    setZoom(clampedZoom);
+  };
+
+  const handleTogglePan = () => {
+    if (tool === "pan") {
+      setTool(lastNonPanToolRef.current);
+      return;
+    }
+    setTool("pan");
+  };
+
+  const handleSwitchToPen = () => {
+    setTool("pen");
+  };
+
+  const handleZoomIn = () => {
+    updateZoom(zoomRef.current + ZOOM_STEP);
+  };
+
+  const handleZoomOut = () => {
+    updateZoom(zoomRef.current - ZOOM_STEP);
+  };
+
+  const handleResetView = () => {
+    const resetPan = { x: 0, y: 0 };
+    panOffsetRef.current = resetPan;
+    setPanOffset(resetPan);
+    zoomRef.current = 1;
+    setZoom(1);
   };
 
   const handleResizeStart = (e: React.PointerEvent) => {
@@ -1092,10 +1463,19 @@ export function Canvas() {
         return "cursor-none"; // Hide default cursor, we'll show custom one
       case "text":
         return "cursor-text";
+      case "pan":
+        return "cursor-grab";
+      case "shape":
+        return "cursor-crosshair";
       default:
         return "";
     }
   };
+
+  const isViewCentered = panOffset.x === 0 && panOffset.y === 0 && zoom === 1;
+  const isZoomMin = zoom <= ZOOM_MIN + 0.001;
+  const isZoomMax = zoom >= ZOOM_MAX - 0.001;
+  const eraserScreenSize = Math.max(2, eraserSize * zoom);
 
   return (
     <div ref={containerRef} className="w-full h-full relative overflow-hidden">
@@ -1103,24 +1483,110 @@ export function Canvas() {
         ref={canvasRef}
         width={dimensions.width}
         height={dimensions.height}
-        className={`w-full h-full touch-none bg-white ${getCursorClass()}`}
+        className={`w-full h-full touch-none bg-white ${isPanning ? "cursor-grabbing" : getCursorClass()}`}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerLeaveCanvas}
       />
 
-      {tool !== "eraser" && !textInputPosition && selectedText && selectedLayout && selectionBox && (
+      <div className="absolute right-4 top-4 z-40 flex items-center gap-2 rounded-xl border border-(--border) bg-(--surface)/90 p-1.5 shadow-lg backdrop-blur">
+        <button
+          onClick={handleTogglePan}
+          aria-label="Toggle pan tool"
+          aria-pressed={tool === "pan"}
+          title="Pan tool (or hold middle mouse button)"
+          className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${tool === "pan"
+            ? "bg-(--primary) text-black"
+            : "text-(--text-muted) hover:bg-(--surface-hover) hover:text-white"
+            }`}
+        >
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M7 11V5a1 1 0 112 0v6m2 0V4a1 1 0 112 0v7m2 0V6a1 1 0 112 0v5m2 0V9a1 1 0 112 0v6a4 4 0 01-4 4h-5a4 4 0 01-4-4v-1a2 2 0 012-2h2"
+            />
+          </svg>
+        </button>
+        <button
+          onClick={handleSwitchToPen}
+          aria-label="Select pen tool"
+          aria-pressed={tool === "pen"}
+          title="Pen tool"
+          className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${tool === "pen"
+            ? "bg-(--primary) text-black"
+            : "text-(--text-muted) hover:bg-(--surface-hover) hover:text-white"
+            }`}
+        >
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+          </svg>
+        </button>
+      </div>
+
+      <div className="absolute top-4 left-4 min-[967px]:top-auto min-[967px]:left-auto min-[967px]:bottom-4 min-[967px]:right-4 z-40 flex items-center gap-2 rounded-xl border border-(--border) bg-(--surface)/90 px-2 py-1.5 shadow-lg backdrop-blur">
+        <button
+          onClick={handleZoomOut}
+          aria-label="Zoom out"
+          title="Zoom out"
+          disabled={isZoomMin}
+          className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${isZoomMin
+            ? "cursor-not-allowed opacity-50 text-(--text-muted)"
+            : "text-(--text-muted) hover:bg-(--surface-hover) hover:text-white"
+            }`}
+        >
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14" />
+          </svg>
+        </button>
+        <span className="min-w-[46px] text-center text-xs font-semibold text-(--text-muted)">
+          {Math.round(zoom * 100)}%
+        </span>
+        <button
+          onClick={handleZoomIn}
+          aria-label="Zoom in"
+          title="Zoom in"
+          disabled={isZoomMax}
+          className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${isZoomMax
+            ? "cursor-not-allowed opacity-50 text-(--text-muted)"
+            : "text-(--text-muted) hover:bg-(--surface-hover) hover:text-white"
+            }`}
+        >
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v14m-7-7h14" />
+          </svg>
+        </button>
+        <div className="h-6 w-px bg-(--border)" />
+        <button
+          onClick={handleResetView}
+          aria-label="Reset view"
+          title="Reset view"
+          disabled={isViewCentered}
+          className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${isViewCentered
+            ? "cursor-not-allowed opacity-50 text-(--text-muted)"
+            : "text-(--text-muted) hover:bg-(--surface-hover) hover:text-white"
+            }`}
+        >
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="3" strokeWidth={2} />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v4m0 8v4m8-8h-4M8 12H4" />
+          </svg>
+        </button>
+      </div>
+
+      {tool !== "eraser" && !textInputPosition && selectedText && selectedLayout && selectionBoxScreen && (
         <>
           <div className="pointer-events-none absolute inset-0">
             <div
               className="absolute"
               style={{
-                left: selectionBox.left,
-                top: selectionBox.top,
-                width: selectionBox.width,
-                height: selectionBox.height,
-                transform: `rotate(${selectionBox.rotation}deg)`,
+                left: selectionBoxScreen.left,
+                top: selectionBoxScreen.top,
+                width: selectionBoxScreen.width,
+                height: selectionBoxScreen.height,
+                transform: `rotate(${selectionBoxScreen.rotation}deg)`,
                 transformOrigin: "50% 50%",
               }}
             >
@@ -1133,11 +1599,11 @@ export function Canvas() {
             <div
               className="absolute"
               style={{
-                left: selectionBox.left,
-                top: selectionBox.top,
-                width: selectionBox.width,
-                height: selectionBox.height,
-                transform: `rotate(${selectionBox.rotation}deg)`,
+                left: selectionBoxScreen.left,
+                top: selectionBoxScreen.top,
+                width: selectionBoxScreen.width,
+                height: selectionBoxScreen.height,
+                transform: `rotate(${selectionBoxScreen.rotation}deg)`,
                 transformOrigin: "50% 50%",
               }}
             >
@@ -1156,9 +1622,9 @@ export function Canvas() {
                 <div
                   className="pointer-events-none absolute h-px bg-(--primary)"
                   style={{
-                    left: rotateLine.left,
-                    top: rotateLine.top,
-                    width: rotateLine.length,
+                    left: rotateLine.left * zoom + panOffset.x,
+                    top: rotateLine.top * zoom + panOffset.y,
+                    width: rotateLine.length * zoom,
                     transform: `rotate(${rotateLine.angle}rad)`,
                     transformOrigin: "0 0",
                   }}
@@ -1168,8 +1634,8 @@ export function Canvas() {
                 onPointerDown={handleRotateStart}
                 className="absolute rounded-full bg-white border border-(--primary) shadow cursor-grab pointer-events-auto"
                 style={{
-                  left: selectionHandles.rotate.x - rotateHandleSize / 2,
-                  top: selectionHandles.rotate.y - rotateHandleSize / 2,
+                  left: selectionHandles.rotate.x * zoom + panOffset.x - rotateHandleSize / 2,
+                  top: selectionHandles.rotate.y * zoom + panOffset.y - rotateHandleSize / 2,
                   width: rotateHandleSize,
                   height: rotateHandleSize,
                 }}
@@ -1181,8 +1647,8 @@ export function Canvas() {
                 onPointerDown={handleResizeStart}
                 className="absolute bg-white border border-(--primary) rounded-sm shadow cursor-nwse-resize pointer-events-auto"
                 style={{
-                  left: selectionHandles.resize.x - resizeHandleSize / 2,
-                  top: selectionHandles.resize.y - resizeHandleSize / 2,
+                  left: selectionHandles.resize.x * zoom + panOffset.x - resizeHandleSize / 2,
+                  top: selectionHandles.resize.y * zoom + panOffset.y - resizeHandleSize / 2,
                   width: resizeHandleSize,
                   height: resizeHandleSize,
                 }}
@@ -1194,7 +1660,7 @@ export function Canvas() {
           )}
         </>
       )}
-      
+
       {/* Eraser cursor indicator */}
       {tool === "eraser" && eraserCursor && (
         <div
@@ -1202,28 +1668,28 @@ export function Canvas() {
           style={{
             left: 0,
             top: 0,
-            width: eraserSize,
-            height: eraserSize,
-            transform: `translate3d(${eraserCursor.x - eraserSize / 2}px, ${eraserCursor.y - eraserSize / 2}px, 0)`,
+            width: eraserScreenSize,
+            height: eraserScreenSize,
+            transform: `translate3d(${eraserCursor.x - eraserScreenSize / 2}px, ${eraserCursor.y - eraserScreenSize / 2}px, 0)`,
             borderColor: eraserMode === "stroke" ? "#ef4444" : "#f59e0b",
             backgroundColor: eraserMode === "stroke" ? "rgba(239, 68, 68, 0.1)" : "rgba(245, 158, 11, 0.1)",
             willChange: "transform",
           }}
         />
       )}
-      
+
       {/* Remote cursor tooltips */}
-      <CursorTooltips />
-      
+      <CursorTooltips offset={panOffset} zoom={zoom} />
+
       {/* Text input overlay */}
       <AnimatePresence>
-        {textInputPosition && (
+        {textOverlayPosition && (
           <TextOverlay
             key="text-overlay"
-            position={textInputPosition}
+            position={textOverlayPosition}
             onSubmit={handleTextSubmit}
             onCancel={() => setTextInputPosition(null)}
-            fontSize={fontSize}
+            fontSize={fontSize * zoom}
             color={penColor}
             containerWidth={dimensions.width}
             containerHeight={dimensions.height}
@@ -1234,3 +1700,5 @@ export function Canvas() {
     </div>
   );
 }
+
+

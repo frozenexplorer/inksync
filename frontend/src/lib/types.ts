@@ -24,6 +24,29 @@ export interface TextItem {
   authorId: string;
 }
 
+export interface ShapeItem {
+  id: string;
+  type: ShapeType;
+  start: Point;
+  end: Point;
+  color: string;
+  thickness: number;
+  fill: boolean;
+  dash: DashStyle;
+  opacity: number;
+  authorId: string;
+}
+
+export interface StickyNote {
+  id: string;
+  position: Point;
+  content: string;
+  color: string;
+  width: number;
+  height: number;
+  authorId: string;
+}
+
 export interface User {
   userId: string;
   role: 'host' | 'participant';
@@ -43,11 +66,17 @@ export interface ChatMessage {
 export interface WhiteboardState {
   strokes: Record<string, Stroke>;
   texts: Record<string, TextItem>;
+  shapes: Record<string, ShapeItem>;
+  stickies: Record<string, StickyNote>;
   users: Record<string, User>;
   messages: ChatMessage[];
 }
 
-export type Tool = 'pen' | 'eraser' | 'text';
+export type Tool = 'pen' | 'eraser' | 'text' | 'pan' | 'hand' | 'highlighter' | 'shape' | 'sticky' | 'laser' | 'image';
+
+export type ShapeType = 'rectangle' | 'ellipse' | 'line' | 'arrow';
+
+export type DashStyle = 'solid' | 'dashed' | 'dotted';
 
 export type EraserMode = 'stroke' | 'pixel';
 
