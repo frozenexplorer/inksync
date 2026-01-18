@@ -6,7 +6,7 @@ import { AnimatePresence, motion, useMotionValue, useSpring, useTransform } from
 import { nanoid } from "nanoid";
 import { SignInButton, SignUpButton, UserButton, useUser } from "@clerk/nextjs";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 type Tab = "create" | "join";
 type RightTab = "guide" | "share" | "shortcuts";
@@ -396,6 +396,13 @@ export default function Home() {
   // Keyboard shortcuts
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+
+      // Don't trigger shortcuts when typing in inputs
+      const target = e.target as HTMLElement | null;
+      if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.isContentEditable) {
+        if (e.key !== "Escape") return; // Allow Escape to close sidebar
+      }
+
       const mod = isMac ? e.metaKey : e.ctrlKey;
 
       if (e.key === "Escape") {
@@ -452,14 +459,14 @@ export default function Home() {
   );
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-[var(--background)] flex flex-col relative">
+    <div className="h-screen w-screen overflow-hidden bg-(--background) flex flex-col relative">
       <PremiumBackdrop />
 
       {/* Header */}
       <motion.header
         initial={{ opacity: 0, y: -12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="h-14 border-b border-[var(--border)] bg-[var(--surface)]/75 backdrop-blur-xl flex items-center justify-between px-3 sm:px-5 flex-shrink-0 relative z-30"
+        className="h-14 border-b border-(--border) bg-(--surface)/75 backdrop-blur-xl flex items-center justify-between px-3 sm:px-5 shrink-0 relative z-30"
       >
         {/* Left: Brand */}
         <div className="flex items-center gap-3 min-w-0">
@@ -467,7 +474,7 @@ export default function Home() {
             <div
               className={cx(
                 "w-10 h-10 rounded-2xl border border-white/10 overflow-hidden",
-                "bg-gradient-to-br from-[var(--primary)]/90 via-[var(--accent)]/75 to-white/15",
+                "bg-linear-to-br from-(--primary)/90 via-(--accent)/75 to-white/15",
                 "shadow-[0_10px_30px_rgba(0,0,0,0.35)]"
               )}
               style={{ transform: "translateZ(12px)" }}
@@ -487,12 +494,12 @@ export default function Home() {
 
           <div className="min-w-0">
             <div className="flex items-center gap-2 min-w-0">
-              <h1 className="font-semibold text-sm truncate tracking-wide text-[var(--text)]">InkSync</h1>
-              <span className="text-[10px] px-2 py-0.5 rounded-full border border-[var(--border)] bg-[var(--surface-hover)]/60 text-[var(--text-muted)]">
+              <h1 className="font-semibold text-sm truncate tracking-wide text-(--text)">InkSync</h1>
+              <span className="text-[10px] px-2 py-0.5 rounded-full border border-(--border) bg-(--surface-hover)/60 text-(--text-muted)">
                 Home
               </span>
             </div>
-            <div className="text-xs text-[var(--text-muted)] truncate">Realtime rooms • clean tools • built for focus</div>
+            <div className="text-xs text-(--text-muted) truncate">Realtime rooms • clean tools • built for focus</div>
           </div>
         </div>
 
@@ -539,14 +546,14 @@ export default function Home() {
 
           {/* Auth (Clerk unchanged) */}
           {isSignedIn ? (
-            <div className="flex items-center gap-2 border-l border-[var(--border)] pl-3">
-              <div className="hidden md:flex items-center gap-2 text-sm text-[var(--text-muted)]">
-                <div className="w-8 h-8 rounded-full border border-[var(--border)] flex items-center justify-center text-xs font-semibold bg-[var(--surface-hover)]/70">
+            <div className="flex items-center gap-2 border-l border-(--border) pl-3">
+              <div className="hidden md:flex items-center gap-2 text-sm text-(--text-muted)">
+                <div className="w-8 h-8 rounded-full border border-(--border) flex items-center justify-center text-xs font-semibold bg-(--surface-hover)/70">
                   {initials(user?.firstName || user?.username || "User")}
                 </div>
                 <div className="flex flex-col leading-tight">
-                  <span className="text-xs font-medium text-[var(--text)]">{user?.firstName || user?.username || "User"}</span>
-                  <span className="text-[10px] text-[var(--text-muted)]">Signed in</span>
+                  <span className="text-xs font-medium text-(--text)">{user?.firstName || user?.username || "User"}</span>
+                  <span className="text-[10px] text-(--text-muted)">Signed in</span>
                 </div>
               </div>
               <UserButton />
@@ -554,12 +561,12 @@ export default function Home() {
           ) : (
             <>
               <SignInButton mode="modal">
-                <button className="px-3 py-1.5 text-sm font-medium text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
+                <button className="px-3 py-1.5 text-sm font-medium text-(--text-muted) hover:text-(--text) transition-colors">
                   Sign in
                 </button>
               </SignInButton>
               <SignUpButton mode="modal">
-                <button className="px-3 py-1.5 text-sm font-semibold bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-black rounded-xl transition-colors shadow-sm">
+                <button className="px-3 py-1.5 text-sm font-semibold bg-(--primary) hover:bg-(--primary-hover) text-black rounded-xl transition-colors shadow-sm">
                   Sign up free
                 </button>
               </SignUpButton>
@@ -581,33 +588,33 @@ export default function Home() {
                 transition={{ duration: 0.55, ease: "easeOut" }}
                 className="relative"
               >
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[var(--border)] bg-[var(--surface)]/65 backdrop-blur-xl text-xs text-[var(--text-muted)]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--primary)] shadow-[0_0_0_6px_rgba(255,255,255,0.05)]" />
-                  <span className="font-medium text-[var(--text)]">Realtime</span>
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-(--border) bg-(--surface)/65 backdrop-blur-xl text-xs text-(--text-muted)">
+                  <span className="w-1.5 h-1.5 rounded-full bg-(--primary) shadow-[0_0_0_6px_rgba(255,255,255,0.05)]" />
+                  <span className="font-medium text-(--text)">Realtime</span>
                   <span>•</span>
                   <span>rooms you can share instantly</span>
                 </div>
 
                 {/* UPDATED HERO TITLE + TYPEWRITER */}
-                <h2 className="mt-5 text-4xl sm:text-5xl font-bold tracking-tight text-[var(--text)] leading-[1.05]">
+                <h2 className="mt-5 text-4xl sm:text-5xl font-bold tracking-tight text-(--text) leading-[1.05]">
                   A realtime whiteboard
                   <span className="block">
                     for{" "}
                     <span className="relative inline-flex items-baseline">
                       <Typewriter
                         words={heroPhrases}
-                        className="text-[var(--text)]"
+                        className="text-(--text)"
                         typingMs={52}
                         deletingMs={30}
                         pauseMs={920}
                       />
-                      <span className="absolute -bottom-1 left-0 right-0 h-[3px] bg-[var(--primary)]/60 blur-[1px] rounded-full" />
+                      <span className="absolute -bottom-1 left-0 right-0 h-[3px] bg-(--primary)/60 blur-[1px] rounded-full" />
                     </span>
                     .
                   </span>
                 </h2>
 
-                <p className="mt-4 text-[var(--text-muted)] text-base sm:text-lg max-w-xl leading-relaxed">
+                <p className="mt-4 text-(--text-muted) text-base sm:text-lg max-w-xl leading-relaxed">
                   Create a room, share a code, and collaborate in seconds — with a smooth, professional UI that stays out of the way.
                   {isSignedIn ? (
                     <span className="block mt-1">Your boards are saved automatically.</span>
@@ -630,9 +637,9 @@ export default function Home() {
                   <InfoCard title="3) Collaborate" desc="Draw together with synced tools and a clean workflow." />
                 </div>
 
-                <div className="mt-6 text-xs text-[var(--text-muted)] flex items-center gap-2">
-                  <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full border border-[var(--border)] bg-[var(--surface)]/55 backdrop-blur-xl">
-                    <span className="font-medium text-[var(--text)]">Tip</span>
+                <div className="mt-6 text-xs text-(--text-muted) flex items-center gap-2">
+                  <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full border border-(--border) bg-(--surface)/55 backdrop-blur-xl">
+                    <span className="font-medium text-(--text)">Tip</span>
                     <span>Press</span>
                     <Kbd>{isMac ? "⌘K" : "Ctrl K"}</Kbd>
                     <span>to toggle the sidebar</span>
