@@ -45,6 +45,12 @@ export interface Room {
 export interface JoinRoomPayload {
   roomId: string;
   userName: string;
+  isCreating?: boolean; // true if creating a new room, false if joining existing
+}
+
+export interface RoomErrorPayload {
+  code: 'ROOM_NOT_FOUND' | 'ROOM_FULL' | 'UNKNOWN';
+  message: string;
 }
 
 export interface RoomStatePayload {
