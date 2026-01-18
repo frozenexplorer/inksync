@@ -23,19 +23,19 @@ export function ToastContainer({ toasts, removeToast }: ToastProps) {
     <div className="fixed bottom-6 right-6 z-100 flex flex-col gap-2 pointer-events-none">
       <AnimatePresence mode="popLayout">
         {toasts.map((toast) => (
-          <Toast key={toast.id} toast={toast} onDismiss={() => removeToast(toast.id)} />
+          <Toast key={toast.id} toast={toast} removeToast={removeToast} />
         ))}
       </AnimatePresence>
     </div>
   );
 }
 
-function Toast({ toast, onDismiss }: { toast: ToastMessage; onDismiss: () => void }) {
+function Toast({ toast, removeToast }: { toast: ToastMessage; removeToast: (id: string) => void }) {
   useEffect(() => {
-    const timer = setTimeout(onDismiss, toast.type === "error" ? 4000 : 3000);
+    const timer = setTimeout(() => removeToast(toast.id), toast.type === "error" ? 4000 : 3000);
     return () => clearTimeout(timer);
-  }, [onDismiss, toast.type]);
-
+  },[removeToast,toast.id,toast.type]);
+    
   const isJoin = toast.type === "join";
   const isError = toast.type === "error";
 
