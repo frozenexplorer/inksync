@@ -4,11 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { nanoid } from "nanoid";
+import { SignInButton, SignUpButton, UserButton, useUser } from "@clerk/nextjs";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 export default function Home() {
   const router = useRouter();
+  const { isSignedIn, user } = useUser();
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [roomId, setRoomId] = useState("");
@@ -17,21 +19,23 @@ export default function Home() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleCreateRoom = async () => {
-    if (!userName.trim()) return;
+    const name = isSignedIn ? (user?.firstName || user?.username || "User") : userName.trim();
+    if (!name) return;
     setIsLoading(true);
     
     // Generate room ID locally for simplicity
     const newRoomId = nanoid(8);
     
     // Store username in sessionStorage for the room page
-    sessionStorage.setItem("userName", userName.trim());
+    sessionStorage.setItem("userName", name);
     
     // Add ?create=true to indicate this is a new room
     router.push(`/room/${newRoomId}?create=true`);
   };
 
   const handleJoinRoom = async () => {
-    if (!roomId.trim() || !userName.trim()) return;
+    const name = isSignedIn ? (user?.firstName || user?.username || "User") : userName.trim();
+    if (!roomId.trim() || !name) return;
     
     setIsLoading(true);
     setErrorMessage(null);
@@ -54,7 +58,7 @@ export default function Home() {
         return;
       }
       
-      sessionStorage.setItem("userName", userName.trim());
+      sessionStorage.setItem("userName", name);
       router.push(`/room/${roomId.trim()}`);
     } catch {
       setErrorMessage("Unable to connect to server. Please try again.");
@@ -62,8 +66,22 @@ export default function Home() {
     }
   };
 
+  const handleQuickStart = () => {
+    const name = isSignedIn ? (user?.firstName || user?.username || "User") : "Guest";
+    sessionStorage.setItem("userName", name);
+    const newRoomId = nanoid(8);
+    router.push(`/room/${newRoomId}?create=true`);
+  };
+
   return (
     <main className="min-h-screen gradient-bg flex flex-col items-center justify-center p-4">
+      {/* User button in top right */}
+      {isSignedIn && (
+        <div className="absolute top-4 right-4">
+          <UserButton />
+        </div>
+      )}
+
       {/* Hero Section */}
       <motion.div
         initial={{ opacity: 0, y: 30 }}
@@ -71,50 +89,83 @@ export default function Home() {
         transition={{ duration: 0.6, ease: "easeOut" }}
         className="text-center mb-12"
       >
-        <div className="flex items-center justify-center gap-3 mb-6">
-          <div className="w-12 h-12 rounded-xl bg-linear-to-br from-(--primary) to-(--accent) flex items-center justify-center">
-            <svg 
-              className="w-7 h-7 text-white" 
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24"
-            >
-              <path 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
-                strokeWidth={2} 
-                d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" 
-              />
-            </svg>
-          </div>
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
-            Ink<span className="text-(--primary)">Sync</span>
-          </h1>
-        </div>
-        <p className="text-(--text-muted) text-lg md:text-xl max-w-md mx-auto">
-          Draw, collaborate, and create together in real-time
+        <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-[#1a1a2e] mb-4">
+          Web whiteboard for<br />instant collaboration.
+        </h1>
+        <p className="text-gray-600 text-lg md:text-xl max-w-md mx-auto">
+          Sketch, brainstorm and share your ideas.<br />
+          {isSignedIn ? "Your boards are saved automatically." : "No sign-up required."}
         </p>
       </motion.div>
 
-      {/* Action Buttons */}
+      {/* Two Card Layout */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2, ease: "easeOut" }}
-        className="flex flex-col sm:flex-row gap-4"
+        className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl w-full"
       >
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="px-8 py-4 bg-(--primary) hover:bg-(--primary-hover) text-black font-semibold rounded-xl transition-all duration-200 hover:scale-105 hover:shadow-lg hover:shadow-(--primary)/20"
-        >
-          Create Room
-        </button>
-        <button
-          onClick={() => setShowJoinModal(true)}
-          className="px-8 py-4 bg-(--surface) hover:bg-(--surface-hover) border border-(--border) font-semibold rounded-xl transition-all duration-200 hover:scale-105"
-        >
-          Join Room
-        </button>
+        {/* Guest Card */}
+        <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 flex flex-col items-center text-center">
+          <h2 className="text-2xl font-bold text-[#1a1a2e] mb-3">Web whiteboard</h2>
+          <p className="text-gray-500 mb-6">
+            No sign up required. Boards<br />expire after 24 hours.
+          </p>
+          <button
+            onClick={handleQuickStart}
+            className="w-full py-3 bg-[#4f46e5] hover:bg-[#4338ca] text-white font-semibold rounded-xl transition-colors"
+          >
+            Start a whiteboard
+          </button>
+          <button
+            onClick={() => setShowJoinModal(true)}
+            className="w-full py-3 mt-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors"
+          >
+            Join existing room
+          </button>
+        </div>
+
+        {/* Sign In Card */}
+        <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 flex flex-col items-center text-center">
+          <h2 className="text-2xl font-bold text-[#1a1a2e] mb-3">
+            {isSignedIn ? `Welcome, ${user?.firstName || "User"}!` : "InkSync Pro"}
+          </h2>
+          <p className="text-gray-500 mb-6">
+            {isSignedIn 
+              ? "Your boards are saved. Create or join a room to continue."
+              : "Save your boards forever. No time limits. Free account."
+            }
+          </p>
+          {isSignedIn ? (
+            <>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="w-full py-3 bg-[#4f46e5] hover:bg-[#4338ca] text-white font-semibold rounded-xl transition-colors"
+              >
+                Create a room
+              </button>
+              <button
+                onClick={() => setShowJoinModal(true)}
+                className="w-full py-3 mt-3 border-2 border-[#4f46e5] text-[#4f46e5] hover:bg-[#4f46e5]/5 font-semibold rounded-xl transition-colors"
+              >
+                Join a room
+              </button>
+            </>
+          ) : (
+            <>
+              <SignUpButton mode="modal">
+                <button className="w-full py-3 bg-[#4f46e5] hover:bg-[#4338ca] text-white font-semibold rounded-xl transition-colors">
+                  Create a free account
+                </button>
+              </SignUpButton>
+              <SignInButton mode="modal">
+                <button className="w-full py-3 mt-3 border-2 border-[#4f46e5] text-[#4f46e5] hover:bg-[#4f46e5]/5 font-semibold rounded-xl transition-colors">
+                  Sign in
+                </button>
+              </SignInButton>
+            </>
+          )}
+        </div>
       </motion.div>
 
       {/* Features */}
@@ -131,11 +182,11 @@ export default function Home() {
         ].map((feature, i) => (
           <div
             key={i}
-            className="text-center p-4 rounded-xl bg-(--surface)/50 border border-(--border)/50"
+            className="text-center p-4 rounded-xl bg-white/80 border border-gray-200 shadow-sm"
           >
             <div className="text-2xl mb-2">{feature.icon}</div>
-            <h3 className="font-semibold mb-1">{feature.title}</h3>
-            <p className="text-sm text-(--text-muted)">{feature.desc}</p>
+            <h3 className="font-semibold mb-1 text-[#1a1a2e]">{feature.title}</h3>
+            <p className="text-sm text-gray-500">{feature.desc}</p>
           </div>
         ))}
       </motion.div>
@@ -144,26 +195,31 @@ export default function Home() {
       <AnimatePresence>
         {showCreateModal && (
           <Modal onClose={() => setShowCreateModal(false)}>
-            <h2 className="text-2xl font-bold mb-6">Create a Room</h2>
+            <h2 className="text-2xl font-bold mb-6 text-[#1a1a2e]">Create a Room</h2>
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm text-(--text-muted) mb-2">
-                  Your Name
-                </label>
-                <input
-                  type="text"
-                  value={userName}
-                  onChange={(e) => setUserName(e.target.value)}
-                  placeholder="Enter your name"
-                  className="w-full px-4 py-3 bg-(--surface) border border-(--border) rounded-lg focus:outline-none focus:border-(--primary) transition-colors"
-                  autoFocus
-                  maxLength={20}
-                />
-              </div>
+              {!isSignedIn && (
+                <div>
+                  <label className="block text-sm text-gray-500 mb-2">
+                    Your Name
+                  </label>
+                  <input
+                    type="text"
+                    value={userName}
+                    onChange={(e) => setUserName(e.target.value)}
+                    placeholder="Enter your name"
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-[#4f46e5] transition-colors text-[#1a1a2e]"
+                    autoFocus
+                    maxLength={20}
+                  />
+                </div>
+              )}
+              {isSignedIn && (
+                <p className="text-gray-500">Creating room as <strong className="text-[#1a1a2e]">{user?.firstName || user?.username}</strong></p>
+              )}
               <button
                 onClick={handleCreateRoom}
-                disabled={!userName.trim() || isLoading}
-                className="w-full py-3 bg-(--primary) hover:bg-(--primary-hover) disabled:opacity-50 disabled:cursor-not-allowed text-black font-semibold rounded-lg transition-colors"
+                disabled={(!isSignedIn && !userName.trim()) || isLoading}
+                className="w-full py-3 bg-[#4f46e5] hover:bg-[#4338ca] disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors"
               >
                 {isLoading ? "Creating..." : "Create Room"}
               </button>
@@ -176,24 +232,29 @@ export default function Home() {
       <AnimatePresence>
         {showJoinModal && (
           <Modal onClose={() => { setShowJoinModal(false); setErrorMessage(null); }}>
-            <h2 className="text-2xl font-bold mb-6">Join a Room</h2>
+            <h2 className="text-2xl font-bold mb-6 text-[#1a1a2e]">Join a Room</h2>
             <div className="space-y-4">
+              {!isSignedIn && (
+                <div>
+                  <label className="block text-sm text-gray-500 mb-2">
+                    Your Name
+                  </label>
+                  <input
+                    type="text"
+                    value={userName}
+                    onChange={(e) => setUserName(e.target.value)}
+                    placeholder="Enter your name"
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-[#4f46e5] transition-colors text-[#1a1a2e]"
+                    autoFocus
+                    maxLength={20}
+                  />
+                </div>
+              )}
+              {isSignedIn && (
+                <p className="text-gray-500">Joining as <strong className="text-[#1a1a2e]">{user?.firstName || user?.username}</strong></p>
+              )}
               <div>
-                <label className="block text-sm text-(--text-muted) mb-2">
-                  Your Name
-                </label>
-                <input
-                  type="text"
-                  value={userName}
-                  onChange={(e) => setUserName(e.target.value)}
-                  placeholder="Enter your name"
-                  className="w-full px-4 py-3 bg-(--surface) border border-(--border) rounded-lg focus:outline-none focus:border-(--primary) transition-colors"
-                  autoFocus
-                  maxLength={20}
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-(--text-muted) mb-2">
+                <label className="block text-sm text-gray-500 mb-2">
                   Room ID
                 </label>
                 <input
@@ -201,9 +262,10 @@ export default function Home() {
                   value={roomId}
                   onChange={(e) => { setRoomId(e.target.value); setErrorMessage(null); }}
                   placeholder="Enter room ID"
-                  className={`w-full px-4 py-3 bg-(--surface) border rounded-lg focus:outline-none transition-colors ${
-                    errorMessage ? "border-red-500" : "border-(--border) focus:border-(--primary)"
+                  className={`w-full px-4 py-3 bg-gray-50 border rounded-lg focus:outline-none transition-colors text-[#1a1a2e] ${
+                    errorMessage ? "border-red-500" : "border-gray-200 focus:border-[#4f46e5]"
                   }`}
+                  autoFocus={isSignedIn}
                   maxLength={20}
                 />
               </div>
@@ -227,8 +289,8 @@ export default function Home() {
               
               <button
                 onClick={handleJoinRoom}
-                disabled={!userName.trim() || !roomId.trim() || isLoading}
-                className="w-full py-3 bg-(--primary) hover:bg-(--primary-hover) disabled:opacity-50 disabled:cursor-not-allowed text-black font-semibold rounded-lg transition-colors"
+                disabled={(!isSignedIn && !userName.trim()) || !roomId.trim() || isLoading}
+                className="w-full py-3 bg-[#4f46e5] hover:bg-[#4338ca] disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors"
               >
                 {isLoading ? "Checking..." : "Join Room"}
               </button>
@@ -252,7 +314,7 @@ function Modal({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+      className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50"
       onClick={onClose}
     >
       <motion.div
@@ -260,12 +322,12 @@ function Modal({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
         transition={{ duration: 0.2 }}
-        className="bg-(--background) border border-(--border) rounded-2xl p-6 w-full max-w-md"
+        className="relative bg-white border border-gray-200 rounded-2xl p-6 w-full max-w-md shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-(--text-muted) hover:text-white transition-colors"
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

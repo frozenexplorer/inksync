@@ -3,6 +3,17 @@ import { Room, WhiteboardState, Stroke, TextItem, User, ChatMessage } from '../t
 // In-memory room storage
 const rooms = new Map<string, Room>();
 
+// Room metadata for expiration
+interface RoomMeta {
+  createdAt: number;
+  ownerId: string | null; // Clerk user ID if authenticated, null for guests
+  lastActivity: number;
+}
+const roomMeta = new Map<string, RoomMeta>();
+
+// Expiration time: 24 hours for guest rooms
+const GUEST_ROOM_EXPIRY_MS = 24 * 60 * 60 * 1000;
+
 // Generate random color for users
 const USER_COLORS = [
   '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', 
@@ -24,24 +35,106 @@ function createEmptyState(): WhiteboardState {
   };
 }
 
-export function createRoom(roomId: string): Room {
+export function createRoom(roomId: string, ownerId: string | null = null): Room {
   const room: Room = {
     id: roomId,
     state: createEmptyState(),
     hostId: null
   };
   rooms.set(roomId, room);
+  
+  // Store room metadata
+  const now = Date.now();
+  roomMeta.set(roomId, {
+    createdAt: now,
+    ownerId,
+    lastActivity: now
+  });
+  
   return room;
 }
 
+// Update room activity timestamp
+export function touchRoom(roomId: string): void {
+  const meta = roomMeta.get(roomId);
+  if (meta) {
+    meta.lastActivity = Date.now();
+  }
+}
+
+// Check if room is expired (only guest rooms expire)
+export function isRoomExpired(roomId: string): boolean {
+  const meta = roomMeta.get(roomId);
+  if (!meta) return false;
+  
+  // Authenticated user rooms never expire
+  if (meta.ownerId) return false;
+  
+  // Guest rooms expire after 24 hours
+  return Date.now() - meta.createdAt > GUEST_ROOM_EXPIRY_MS;
+}
+
+// Get room expiry info
+export function getRoomExpiryInfo(roomId: string): { expiresAt: number | null; isGuest: boolean } | null {
+  const meta = roomMeta.get(roomId);
+  if (!meta) return null;
+  
+  if (meta.ownerId) {
+    return { expiresAt: null, isGuest: false };
+  }
+  
+  return {
+    expiresAt: meta.createdAt + GUEST_ROOM_EXPIRY_MS,
+    isGuest: true
+  };
+}
+
+// Cleanup expired rooms periodically
+export function cleanupExpiredRooms(): number {
+  const now = Date.now();
+  let cleaned = 0;
+  
+  for (const [roomId, meta] of roomMeta.entries()) {
+    // Only cleanup guest rooms
+    if (!meta.ownerId && now - meta.createdAt > GUEST_ROOM_EXPIRY_MS) {
+      rooms.delete(roomId);
+      roomMeta.delete(roomId);
+      cleaned++;
+      console.log(`Cleaned up expired guest room: ${roomId}`);
+    }
+  }
+  
+  return cleaned;
+}
+
+// Start cleanup interval (run every hour)
+setInterval(() => {
+  const cleaned = cleanupExpiredRooms();
+  if (cleaned > 0) {
+    console.log(`Cleanup: removed ${cleaned} expired guest rooms`);
+  }
+}, 60 * 60 * 1000);
+
 export function getRoom(roomId: string): Room | undefined {
+  // Check if room is expired before returning
+  if (isRoomExpired(roomId)) {
+    rooms.delete(roomId);
+    roomMeta.delete(roomId);
+    return undefined;
+  }
   return rooms.get(roomId);
 }
 
-export function getOrCreateRoom(roomId: string): Room {
+export function getOrCreateRoom(roomId: string, ownerId: string | null = null): Room {
+  // Check for expired room first
+  if (isRoomExpired(roomId)) {
+    rooms.delete(roomId);
+    roomMeta.delete(roomId);
+  }
+  
   let room = rooms.get(roomId);
   if (!room) {
-    room = createRoom(roomId);
+    room = createRoom(roomId, ownerId);
   }
   return room;
 }
@@ -49,9 +142,10 @@ export function getOrCreateRoom(roomId: string): Room {
 export function addUserToRoom(
   roomId: string, 
   userId: string, 
-  userName: string
+  userName: string,
+  clerkUserId: string | null = null
 ): { user: User; isHost: boolean } {
-  const room = getOrCreateRoom(roomId);
+  const room = getOrCreateRoom(roomId, clerkUserId);
   const isHost = room.hostId === null;
   
   if (isHost) {
@@ -66,6 +160,10 @@ export function addUserToRoom(
   };
 
   room.state.users[userId] = user;
+  
+  // Update room activity
+  touchRoom(roomId);
+  
   return { user, isHost };
 }
 
