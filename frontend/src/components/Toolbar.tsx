@@ -7,6 +7,7 @@ import { getSocket } from "@/lib/socket";
 import { Tool, ShapeType } from "@/lib/types";
 import { ClearBoardModal } from "./ClearBoardModal";
 import { handleKeyboardShortcut, SHORTCUTS, getShortcutLabel } from "@/lib/toolbarShortcuts";
+import { TEXT_FONTS, DEFAULT_TEXT_FONT_FAMILY } from "@/lib/typography";
 
 const COLORS = [
   // Blacks & Grays
@@ -116,6 +117,7 @@ export function Toolbar() {
   const [showShapeMenu, setShowShapeMenu] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [showFontMenu, setShowFontMenu] = useState(false);
   const [editingSlot, setEditingSlot] = useState<number | null>(null);
   const [dockEdge, setDockEdge] = useState<DockEdge>(() => {
     if (typeof window === "undefined") return "bottom";
@@ -145,6 +147,18 @@ export function Toolbar() {
     const stored = window.localStorage.getItem("inksync.recentColors");
     return stored ? JSON.parse(stored) : ["#000000", "#FF6B6B", "#4ECDC4"];
   });
+
+  // Sync initial pen color with the first recent color to avoid mismatch
+  useEffect(() => {
+    if (recentColors.length > 0) {
+      // We only want to do this on mount if the store is default
+      // But since useWhiteboardStore is global, we should be careful.
+      // A simple sync on mount is safer for the "initial" glitch.
+      useWhiteboardStore.getState().setPenColor(recentColors[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run only on mount
+
   const colorPickerRef = useRef<HTMLInputElement>(null);
   const [isCollapsed, setIsCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -165,6 +179,8 @@ export function Toolbar() {
     setTool,
     setPenColor,
     setPenThickness,
+    fontFamily,
+    setFontFamily,
     setShowCursorCount,
     setEraserMode,
     setEraserSize,
@@ -267,6 +283,7 @@ export function Toolbar() {
     if (collapsed) {
       setShowSettings(false);
       setShowShapeMenu(false);
+      setShowFontMenu(false);
     }
   }, [collapsed]);
 
@@ -275,6 +292,7 @@ export function Toolbar() {
       setShowOptions(false);
       setShowSettings(false);
       setShowShapeMenu(false);
+      setShowFontMenu(false);
     }
   }, [isDragging]);
 
@@ -722,6 +740,65 @@ export function Toolbar() {
               </>
             )}
 
+
+            {!collapsed && tool === "text" && (
+              <>
+                <div className={dividerClass} />
+                <div className="relative">
+                  <button
+                    onClick={() => setShowFontMenu(!showFontMenu)}
+                    className={`flex items-center gap-2 px-2 py-1.5 rounded-lg transition-all ${showFontMenu
+                      ? "bg-(--primary) text-black"
+                      : "hover:bg-(--surface-hover) text-(--text-muted) hover:text-white"
+                      }`}
+                    title="Select Font"
+                  >
+                    <span className="text-xs font-medium whitespace-nowrap">
+                      {TEXT_FONTS.find(f => f.family === fontFamily)?.label || "Font"}
+                    </span>
+                    <svg className="w-3 h-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  <AnimatePresence>
+                    {showFontMenu && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        transition={{ duration: 0.15 }}
+                        className={`absolute bottom-full mb-3 left-0 bg-(--surface) border border-(--border) rounded-xl p-2 shadow-xl min-w-[160px] z-50`}
+                      >
+                        <div className="flex flex-col gap-1">
+                          {TEXT_FONTS.map((font) => (
+                            <button
+                              key={font.id}
+                              onClick={() => {
+                                setFontFamily(font.family);
+                                setShowFontMenu(false);
+                              }}
+                              className={`px-3 py-2 rounded-lg text-left text-sm transition-colors flex items-center justify-between ${fontFamily === font.family
+                                ? "bg-(--primary) text-black"
+                                : "text-(--text-muted) hover:bg-(--surface-hover) hover:text-white"
+                                }`}
+                              style={{ fontFamily: font.family }}
+                            >
+                              {font.label}
+                              {fontFamily === font.family && (
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </>
+            )}
 
             {!collapsed && role === "host" && (
               <>
