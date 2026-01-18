@@ -6,6 +6,8 @@ import {
   addStroke, 
   removeStrokes,
   addText,
+  updateText,
+  removeText,
   addChatMessage,
   clearBoard,
   getNewHostId,
@@ -106,6 +108,24 @@ export function setupSocketHandlers(io: Server) {
       if (addText(roomId, text)) {
         // Broadcast to other clients only (not back to sender)
         socket.to(roomId).emit('text:added', text);
+      }
+    });
+
+    socket.on('text:update', (text: TextItem) => {
+      if (!socketData) return;
+      const { roomId } = socketData;
+
+      if (updateText(roomId, text)) {
+        socket.to(roomId).emit('text:updated', text);
+      }
+    });
+
+    socket.on('text:remove', (textId: string) => {
+      if (!socketData) return;
+      const { roomId } = socketData;
+
+      if (removeText(roomId, textId)) {
+        socket.to(roomId).emit('text:removed', textId);
       }
     });
 

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { DEFAULT_TEXT_FONT_FAMILY } from '@/lib/typography';
 import { Stroke, TextItem, User, WhiteboardState, Tool, Point, CursorPosition, EraserMode, ChatMessage } from '@/lib/types';
 
 interface LocalStroke {
@@ -38,6 +39,7 @@ interface WhiteboardStore {
   penColor: string;
   penThickness: number;
   fontSize: number;
+  fontFamily: string;
   eraserMode: EraserMode;
   eraserSize: number;
   
@@ -57,7 +59,10 @@ interface WhiteboardStore {
   hydrateState: (state: WhiteboardState) => void;
   addStroke: (stroke: Stroke) => void;
   removeStrokes: (strokeIds: string[]) => void;
+  applyStrokeChanges: (removeIds: string[], addStrokes: Stroke[]) => void;
   addText: (text: TextItem) => void;
+  updateText: (text: TextItem) => void;
+  removeText: (textId: string) => void;
   addMessage: (message: ChatMessage) => void;
   clearBoard: () => void;
   addUser: (user: User) => void;
@@ -78,6 +83,7 @@ interface WhiteboardStore {
   setPenColor: (color: string) => void;
   setPenThickness: (thickness: number) => void;
   setFontSize: (size: number) => void;
+  setFontFamily: (family: string) => void;
   setEraserMode: (mode: EraserMode) => void;
   setEraserSize: (size: number) => void;
   
@@ -111,6 +117,7 @@ const initialState = {
   penColor: '#000000',
   penThickness: 3,
   fontSize: 16,
+  fontFamily: DEFAULT_TEXT_FONT_FAMILY,
   eraserMode: 'stroke' as EraserMode,
   eraserSize: 20,
   textInputPosition: null,
@@ -143,10 +150,35 @@ export const useWhiteboardStore = create<WhiteboardStore>((set, get) => ({
     }
     return { strokes: newStrokes };
   }),
+
+  applyStrokeChanges: (removeIds, addStrokes) => set((state) => {
+    if (removeIds.length === 0 && addStrokes.length === 0) {
+      return state;
+    }
+    const newStrokes = { ...state.strokes };
+    for (const id of removeIds) {
+      delete newStrokes[id];
+    }
+    for (const stroke of addStrokes) {
+      newStrokes[stroke.id] = stroke;
+    }
+    return { strokes: newStrokes };
+  }),
   
   addText: (text) => set((state) => ({
     texts: { ...state.texts, [text.id]: text }
   })),
+
+  updateText: (text) => set((state) => {
+    if (!state.texts[text.id]) return state;
+      return { texts: { ...state.texts, [text.id]: text } };
+  }),
+
+  removeText: (textId) => set((state) => {
+    const nextTexts = { ...state.texts };
+    delete nextTexts[textId];
+    return { texts: nextTexts };
+  }),
 
   addMessage: (message) => set((state) => {
     const nextMessages = [...state.messages, message];
@@ -223,6 +255,7 @@ export const useWhiteboardStore = create<WhiteboardStore>((set, get) => ({
   setPenColor: (penColor) => set({ penColor }),
   setPenThickness: (penThickness) => set({ penThickness }),
   setFontSize: (fontSize) => set({ fontSize }),
+  setFontFamily: (fontFamily) => set({ fontFamily }),
   setEraserMode: (eraserMode) => set({ eraserMode }),
   setEraserSize: (eraserSize) => set({ eraserSize }),
   
