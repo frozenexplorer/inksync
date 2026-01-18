@@ -1,16 +1,24 @@
 # InkSync - Real-Time Collaborative Whiteboard
 
-A real-time collaborative whiteboard where multiple users can draw, erase, and add text on a shared canvas with instant synchronization.
+A real-time collaborative whiteboard application where multiple users can draw, erase, add text, and create shapes on a shared canvas with instant synchronization. Built with Next.js, Socket.io, and Clerk authentication.
 
 ## Features
 
 - **Real-time Collaboration**: Multiple users can draw simultaneously with instant sync
-- **Drawing Tools**: Pen, Eraser, and Text tools with customizable options
+- **Drawing Tools**: 
+  - **Hand Tool**: Pan and navigate the canvas
+  - **Pen Tool**: Draw on the canvas with customizable colors and brush sizes
+  - **Eraser Tool**: 
+    - **Stroke Mode**: Erase entire strokes at once
+    - **Pixel Mode**: Erase parts of strokes with adjustable size
+  - **Shape Tool**: Draw rectangles, ellipses, lines, and arrows
+  - **Text Tool**: Add text with font family selection and size control
 - **Customization**: 
-  - Multiple colors (11 color palette)
+  - Extensive color palette (64+ colors) with custom color picker
   - Adjustable brush sizes (2px - 16px)
-  - Text tool with font family selection and size control
+  - Text tool with multiple font families and size control
   - Eraser with stroke and pixel modes
+  - Shape tools with fill, opacity, and dash style options
 - **Room-based**: Create or join rooms via unique Room IDs
 - **Easy Sharing**: Share via invite link or room code
 - **User Roles**: Host (first user) can clear the board; participants can draw
@@ -19,10 +27,11 @@ A real-time collaborative whiteboard where multiple users can draw, erase, and a
 - **Authentication**: Optional sign-in with Clerk (Google, GitHub, Email)
 - **Room Persistence**: 
   - Guest rooms expire after 24 hours of inactivity
-  - Authenticated user rooms persist indefinitely
+  - Authenticated user rooms persist indefinitely (in-memory)
 - **Real-time Chat**: Built-in chat panel for collaboration
 - **Remote Cursors**: See other users' cursor positions in real-time
 - **Smart Text Input**: Text overlay automatically adjusts position to stay within canvas bounds
+- **Canvas Export**: Export whiteboard as PDF or image
 
 ## Tech Stack
 
@@ -119,37 +128,43 @@ A real-time collaborative whiteboard where multiple users can draw, erase, and a
 1. Open http://localhost:3000 in your browser
 2. **Choose your access method**:
    - **Guest Mode**: Enter your name and create/join a room (no sign-up required)
-   - **Signed In**: Sign in with Clerk for persistent boards and saved sessions
+   - **Signed In**: Sign in with Clerk for persistent rooms (rooms created by authenticated users don't expire)
 3. **Create or Join a Room**:
    - Click "Create Room" to start a new whiteboard
    - Or enter a room code to join an existing session
+   - Or use a direct invite link: `http://localhost:3000/join/ROOM_ID`
 4. **Share with others**:
    - Click the **Share** button in the header to get the invite link
    - Copy the room code and share it
-   - Share the direct invite link: `http://localhost:3000/join/ROOM_ID`
+   - Share the direct invite link
 
 ### Drawing Tools
 
-Use the toolbar on the left:
+Use the draggable toolbar (default position: left side):
 
-- **Pen Tool**: Draw on the canvas with customizable colors and brush sizes
+- **Hand Tool**: Click and drag to pan around the canvas
+- **Pen Tool**: Draw freehand strokes with customizable colors and brush sizes
 - **Eraser Tool**: 
-  - **Stroke Mode**: Erase entire strokes at once
-  - **Pixel Mode**: Erase parts of strokes with adjustable size
+  - **Stroke Mode**: Click to erase entire strokes at once
+  - **Pixel Mode**: Erase parts of strokes with adjustable eraser size
+- **Shape Tool**: Draw rectangles, ellipses, lines, and arrows with customizable styles
 - **Text Tool**: 
   - Click on canvas to add text
   - Choose from multiple font families
   - Adjustable text size
   - Text input automatically positions to stay within canvas bounds
 
-### Features
+### Additional Features
 
-- **Color Palette**: 11 predefined colors + custom selection
-- **Brush Sizes**: 5 size options (2px - 16px)
+- **Color Palette**: 64+ predefined colors organized by category + custom color picker
+- **Brush Sizes**: 5 size options (2px, 4px, 6px, 10px, 16px)
+- **Shape Options**: Fill, opacity, and dash styles (solid, dashed, dotted)
 - **Clear Board**: Host can clear the entire board (with confirmation modal)
 - **Real-time Chat**: Open the chat panel to communicate with other users
-- **Remote Cursors**: See where other users are pointing/drawing
+- **Remote Cursors**: See where other users are pointing/drawing in real-time
 - **Settings**: Toggle cursor count display and other preferences
+- **Canvas Export**: Export your whiteboard as PDF or image
+- **Keyboard Shortcuts**: Use keyboard shortcuts for quick tool switching
 
 ## Architecture
 
@@ -174,9 +189,10 @@ Broadcast to all connected clients (excluding sender)
 
 ### Room Management
 - **Guest Rooms**: Created by anonymous users, expire after 24 hours of inactivity
-- **Authenticated Rooms**: Created by signed-in users, persist indefinitely
+- **Authenticated Rooms**: Created by signed-in users, persist indefinitely (in-memory)
 - **Room Ownership**: First authenticated user to join a guest room becomes owner
 - **Automatic Cleanup**: Empty guest rooms are cleaned up after 1 minute
+- **State Persistence**: All room state is stored in-memory on the backend (no database)
 
 ## Project Structure
 
@@ -190,18 +206,22 @@ Broadcast to all connected clients (excluding sender)
 │   │   │   └── layout.tsx         # Root layout with ClerkProvider
 │   │   ├── components/            # React components
 │   │   │   ├── Canvas.tsx         # Main drawing canvas (ResizeObserver)
-│   │   │   ├── Toolbar.tsx        # Drawing tools sidebar
+│   │   │   ├── Toolbar.tsx        # Draggable drawing tools sidebar
 │   │   │   ├── TextOverlay.tsx    # Smart text input overlay
 │   │   │   ├── ChatPanel.tsx      # Real-time chat panel
 │   │   │   ├── ClearBoardModal.tsx # Clear board confirmation
 │   │   │   ├── ShareModal.tsx     # Share room modal
 │   │   │   ├── PresenceBar.tsx    # User presence indicators
 │   │   │   ├── CursorTooltips.tsx # Remote cursor tooltips
+│   │   │   ├── JoinPromptModal.tsx # Join room name prompt
 │   │   │   └── Toast.tsx          # Toast notifications
 │   │   ├── lib/                   # Utilities & socket
 │   │   │   ├── socket.ts          # Socket.io client setup
 │   │   │   ├── types.ts           # Shared TypeScript types
-│   │   │   └── typography.ts      # Text font definitions
+│   │   │   ├── typography.ts      # Text font definitions
+│   │   │   ├── canvasExport.ts    # Canvas export utilities
+│   │   │   ├── toolbarShortcuts.ts # Keyboard shortcuts
+│   │   │   └── utils.ts           # General utilities
 │   │   ├── store/                 # Zustand store
 │   │   │   └── whiteboard.ts      # Main state management
 │   │   └── proxy.ts                # Clerk middleware (Next.js 16)
@@ -215,8 +235,10 @@ Broadcast to all connected clients (excluding sender)
     │   ├── rooms/                  # Room management
     │   │   └── manager.ts          # Room state & expiration logic
     │   └── types.ts                # Shared TypeScript types
-    ├── railway.json                # Railway deployment config
+    ├── nixpacks.toml               # Railway/Nixpacks build config
+    ├── railway.json                # Railway deployment config (legacy)
     ├── Procfile                    # Heroku deployment config
+    ├── tsconfig.json               # TypeScript configuration
     └── package.json
 ```
 
@@ -234,17 +256,17 @@ Broadcast to all connected clients (excluding sender)
 
 ### Backend (Railway)
 
-See `backend/RAILWAY_DEPLOY.md` for detailed instructions.
-
 **Quick Steps:**
 1. Install Railway CLI: `npm i -g @railway/cli`
 2. Login: `railway login`
 3. Initialize: `cd backend && railway init`
 4. Set environment variables:
-   - `FRONTEND_URL` - Your Vercel frontend URL
+   - `FRONTEND_URL` - Your Vercel frontend URL (e.g., `https://your-app.vercel.app`)
 5. Deploy: `railway up`
 
-**Alternative Platforms**: Render, Fly.io, Heroku, DigitalOcean (see `backend/DEPLOYMENT.md`)
+**Note**: Railway uses `nixpacks.toml` for build configuration. The backend will automatically build and start.
+
+**Alternative Platforms**: Render, Fly.io, Heroku, DigitalOcean
 
 ### Environment Variables Reference
 
@@ -278,25 +300,38 @@ See `backend/RAILWAY_DEPLOY.md` for detailed instructions.
 
 ### Deployment Issues
 - **Vercel build fails**: Check that Root Directory is set to `frontend`
-- **Railway deployment fails**: Verify `railway.json` and build commands are correct
-- **Backend won't start**: Check that `dist/` folder exists after build
+- **Railway deployment fails**: 
+  - Verify `nixpacks.toml` exists in `backend/` directory
+  - Check that `FRONTEND_URL` environment variable is set correctly
+  - Ensure build completes successfully (check Railway logs)
+- **Backend won't start**: 
+  - Check that `dist/` folder exists after build
+  - Verify TypeScript compilation succeeded
+  - Check Railway logs for runtime errors
+- **CORS errors in production**: Ensure `FRONTEND_URL` matches your Vercel deployment URL exactly
 
 ## Recent Updates
 
-### v2.0 - Major Updates
+### v2.0 - Current Version
 
-- ✅ **Clerk Authentication**: Replaced NextAuth with Clerk for simpler auth flow
-- ✅ **Room Persistence**: Guest rooms expire after 24h; authenticated rooms persist
+- ✅ **Clerk Authentication**: Simple authentication with Google, GitHub, and Email
+- ✅ **Room Persistence**: Guest rooms expire after 24h; authenticated rooms persist (in-memory)
 - ✅ **Canvas Improvements**: 
   - ResizeObserver for reliable canvas resizing
   - Local stroke rendering to prevent flickering
-  - Smart text overlay positioning
+  - Smart text overlay positioning (auto-adjusts to stay within bounds)
+- ✅ **Drawing Tools**:
+  - Hand tool for panning
+  - Shape tool with rectangles, ellipses, lines, and arrows
+  - Enhanced eraser with stroke and pixel modes
 - ✅ **UI Enhancements**:
+  - Draggable toolbar (can be docked to any edge)
   - Custom clear board confirmation modal
   - Improved toolbar icon alignment
   - Standard text tool icon (industry practice)
+  - Canvas export functionality (PDF/image)
 - ✅ **CORS Configuration**: Enhanced for Vercel preview deployments
-- ✅ **Deployment Guides**: Complete Railway deployment documentation
+- ✅ **Keyboard Shortcuts**: Quick tool switching with keyboard
 
 ### Technical Improvements
 
@@ -304,6 +339,8 @@ See `backend/RAILWAY_DEPLOY.md` for detailed instructions.
 - **UX**: Text input stays within canvas bounds automatically
 - **Reliability**: No stroke flickering (server excludes sender from broadcasts)
 - **Scalability**: Room expiration prevents memory leaks
+- **State Management**: Zustand for efficient state updates
+- **Real-time Sync**: Optimistic rendering with Socket.io WebSockets
 
 ## Contributing
 
