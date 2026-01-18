@@ -139,7 +139,7 @@ function PremiumBackdrop() {
         transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
       />
       <motion.div
-        className="absolute -bottom-44 right-[-160px] w-[620px] h-[620px] rounded-full blur-3xl opacity-22"
+        className="absolute -bottom-44 right-[-160px] w-[620px] h-[620px] rounded-full blur-3xl opacity-25"
         style={{
           background: "radial-gradient(circle at 40% 40%, rgba(255,255,255,0.30), rgba(255,255,255,0) 65%)",
         }}
