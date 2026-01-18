@@ -584,6 +584,7 @@ export default function Home() {
             onClick={() => setIsNavOpen((prev) => !prev)}
             aria-label="Toggle navigation"
             aria-expanded={isNavOpen}
+            aria-controls="mobile-nav-panel"
             className={cx(
               "lg:hidden w-10 h-10 rounded-xl border border-(--border) flex items-center justify-center transition-all",
               "bg-(--surface)/70 backdrop-blur-xl hover:bg-(--surface-hover)/80"
@@ -603,6 +604,8 @@ export default function Home() {
         <AnimatePresence>
           {isNavOpen && (
             <motion.div
+              id="mobile-nav-panel"
+              aria-label="Mobile navigation"
               initial={{ opacity: 0, y: -8, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -8, scale: 0.98 }}
