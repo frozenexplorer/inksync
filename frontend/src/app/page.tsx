@@ -52,7 +52,7 @@ function IconButton({
       aria-label={label}
       aria-pressed={pressed}
       className={cx(
-        "relative w-9 h-9 rounded-xl border border-[var(--border)] flex items-center justify-center transition-all",
+        "relative w-9 h-9 rounded-xl border border-[var(--border)] flex items-center justify-center transition-all cursor-pointer",
         "bg-[var(--surface)]/60 backdrop-blur-xl hover:bg-[var(--surface-hover)]/80 hover:shadow-sm",
         pressed ? "ring-2 ring-[var(--primary)]/45" : "",
         className
@@ -577,12 +577,12 @@ export default function Home() {
             ) : (
               <>
                 <SignInButton mode="modal">
-                  <button className="px-3 py-1.5 text-sm font-medium text-(--text-muted) hover:text-(--text) transition-colors">
+                  <button className="px-3 py-1.5 text-sm font-medium text-(--text-muted) hover:text-(--text) transition-colors cursor-pointer">
                     Sign in
                   </button>
                 </SignInButton>
                 <SignUpButton mode="modal">
-                  <button className="px-3 py-1.5 text-sm font-semibold bg-(--primary) hover:bg-(--primary-hover) text-black rounded-xl transition-colors shadow-sm">
+                  <button className="px-3 py-1.5 text-sm font-semibold bg-(--primary) hover:bg-(--primary-hover) text-black rounded-xl transition-colors shadow-sm cursor-pointer">
                     Sign up free
                   </button>
                 </SignUpButton>
@@ -597,7 +597,7 @@ export default function Home() {
             aria-expanded={isNavOpen}
             aria-controls="mobile-nav-panel"
             className={cx(
-              "lg:hidden w-10 h-10 rounded-xl border border-(--border) flex items-center justify-center transition-all",
+              "lg:hidden w-10 h-10 rounded-xl border border-(--border) flex items-center justify-center transition-all cursor-pointer",
               "bg-(--surface)/70 backdrop-blur-xl hover:bg-(--surface-hover)/80"
             )}
           >
@@ -631,7 +631,7 @@ export default function Home() {
                   }}
                   aria-pressed={rightOpen && activeTab === "guide"}
                   className={cx(
-                    "flex w-full items-center gap-3 rounded-xl border border-(--border) px-3 py-2 text-left text-sm transition-colors",
+                    "flex w-full items-center gap-3 rounded-xl border border-(--border) px-3 py-2 text-left text-sm transition-colors cursor-pointer",
                     rightOpen && activeTab === "guide"
                       ? "bg-(--primary) text-black"
                       : "bg-(--surface-hover)/50 text-(--text) hover:bg-(--surface-hover)"
@@ -656,7 +656,7 @@ export default function Home() {
                   }}
                   aria-pressed={rightOpen && activeTab === "share"}
                   className={cx(
-                    "flex w-full items-center gap-3 rounded-xl border border-(--border) px-3 py-2 text-left text-sm transition-colors",
+                    "flex w-full items-center gap-3 rounded-xl border border-(--border) px-3 py-2 text-left text-sm transition-colors cursor-pointer",
                     rightOpen && activeTab === "share"
                       ? "bg-(--primary) text-black"
                       : "bg-(--surface-hover)/50 text-(--text) hover:bg-(--surface-hover)"
@@ -686,7 +686,7 @@ export default function Home() {
                   }}
                   aria-pressed={rightOpen && activeTab === "shortcuts"}
                   className={cx(
-                    "flex w-full items-center gap-3 rounded-xl border border-(--border) px-3 py-2 text-left text-sm transition-colors",
+                    "flex w-full items-center gap-3 rounded-xl border border-(--border) px-3 py-2 text-left text-sm transition-colors cursor-pointer",
                     rightOpen && activeTab === "shortcuts"
                       ? "bg-(--primary) text-black"
                       : "bg-(--surface-hover)/50 text-(--text) hover:bg-(--surface-hover)"
@@ -719,7 +719,7 @@ export default function Home() {
                   <SignInButton mode="modal">
                     <button
                       onClick={() => setIsNavOpen(false)}
-                      className="w-full px-3 py-2 text-sm font-medium text-(--text-muted) hover:text-(--text) transition-colors rounded-xl border border-(--border) bg-(--surface-hover)/50"
+                      className="w-full px-3 py-2 text-sm font-medium text-(--text-muted) hover:text-(--text) transition-colors rounded-xl border border-(--border) bg-(--surface-hover)/50 cursor-pointer"
                     >
                       Sign in
                     </button>
@@ -727,7 +727,7 @@ export default function Home() {
                   <SignUpButton mode="modal">
                     <button
                       onClick={() => setIsNavOpen(false)}
-                      className="w-full px-3 py-2 text-sm font-semibold bg-(--primary) hover:bg-(--primary-hover) text-black rounded-xl transition-colors shadow-sm"
+                      className="w-full px-3 py-2 text-sm font-semibold bg-(--primary) hover:bg-(--primary-hover) text-black rounded-xl transition-colors shadow-sm cursor-pointer"
                     >
                       Sign up free
                     </button>
@@ -843,7 +843,7 @@ export default function Home() {
                           type="button"
                           onClick={() => setTab("create")}
                           className={cx(
-                            "flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border",
+                            "flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border cursor-pointer",
                             "focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/50",
                             tab === "create"
                               ? "bg-[var(--primary)] text-black border-[var(--primary)] shadow-sm"
@@ -857,7 +857,7 @@ export default function Home() {
                           type="button"
                           onClick={() => setTab("join")}
                           className={cx(
-                            "flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border",
+                            "flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border cursor-pointer",
                             "focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/50",
                             tab === "join"
                               ? "bg-[var(--primary)] text-black border-[var(--primary)] shadow-sm"
@@ -951,7 +951,7 @@ export default function Home() {
                             "w-full py-3.5 rounded-2xl",
                             "bg-[var(--primary)] hover:bg-[var(--primary-hover)]",
                             "disabled:opacity-50 disabled:cursor-not-allowed",
-                            "text-black font-semibold transition-all flex items-center justify-center gap-2",
+                            "text-black font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer",
                             "shadow-[0_12px_44px_rgba(0,0,0,0.35)] hover:shadow-[0_18px_70px_rgba(0,0,0,0.45)]"
                           )}
                         >
@@ -1045,7 +1045,7 @@ export default function Home() {
                       key={t}
                       onClick={() => setActiveTab(t)}
                       className={cx(
-                        "px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors capitalize",
+                        "px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors capitalize cursor-pointer",
                         activeTab === t
                           ? "bg-[var(--primary)] text-black border-[var(--primary)]"
                           : "bg-[var(--surface-hover)]/70 border-[var(--border)] hover:bg-[var(--surface)]/70"
@@ -1064,7 +1064,7 @@ export default function Home() {
 
                   <button
                     onClick={() => setRightOpen(false)}
-                    className="w-8 h-8 rounded-xl border border-[var(--border)] bg-[var(--surface-hover)]/70 hover:bg-[var(--surface)]/70 flex items-center justify-center"
+                    className="w-8 h-8 rounded-xl border border-[var(--border)] bg-[var(--surface-hover)]/70 hover:bg-[var(--surface)]/70 flex items-center justify-center cursor-pointer"
                     aria-label="Close sidebar"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1133,7 +1133,7 @@ export default function Home() {
                         </div>
                         <button
                           onClick={() => copyToClipboard(origin || "", "Base URL copied")}
-                          className="px-3 py-2 rounded-2xl bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-black text-xs font-medium transition-colors disabled:opacity-50"
+                          className="px-3 py-2 rounded-2xl bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-black text-xs font-medium transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
                           disabled={!origin}
                         >
                           Copy
@@ -1197,7 +1197,7 @@ export default function Home() {
           <div className="absolute top-4 right-4 flex flex-col gap-2 z-30">
             <button
               onClick={() => openRight("guide")}
-              className="px-3 py-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)]/70 backdrop-blur-xl hover:bg-[var(--surface-hover)]/70 shadow-sm text-xs font-medium flex items-center gap-2"
+              className="px-3 py-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)]/70 backdrop-blur-xl hover:bg-[var(--surface-hover)]/70 shadow-sm text-xs font-medium flex items-center gap-2 cursor-pointer"
             >
               <span>Open</span>
               <Kbd>{isMac ? "⌘K" : "Ctrl K"}</Kbd>

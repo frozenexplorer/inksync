@@ -422,7 +422,7 @@ export default function RoomPage() {
             aria-label={isChatOpen ? "Close chat" : "Open chat"}
             aria-pressed={isChatOpen}
             title="Chat"
-            className={`relative w-9 h-9 rounded-lg border border-[var(--border)] flex items-center justify-center transition-colors ${
+            className={`relative w-9 h-9 rounded-lg border border-[var(--border)] flex items-center justify-center transition-colors cursor-pointer ${
               isChatOpen
                 ? "bg-[var(--primary)] text-black"
                 : "bg-[var(--surface-hover)] hover:bg-[var(--primary)] hover:text-black"
@@ -449,7 +449,7 @@ export default function RoomPage() {
               aria-haspopup="menu"
               aria-expanded={isExportOpen}
               title="Export"
-              className={`relative w-9 h-9 rounded-lg border border-[var(--border)] flex items-center justify-center transition-colors ${
+              className={`relative w-9 h-9 rounded-lg border border-[var(--border)] flex items-center justify-center transition-colors cursor-pointer ${
                 isExportOpen
                   ? "bg-[var(--primary)] text-black"
                   : "bg-[var(--surface-hover)] hover:bg-[var(--primary)] hover:text-black"
@@ -470,7 +470,7 @@ export default function RoomPage() {
                 <button
                   onClick={handleExportPng}
                   aria-label="Export as PNG"
-                  className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[var(--text)] hover:bg-[var(--surface-hover)]"
+                  className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[var(--text)] hover:bg-[var(--surface-hover)] cursor-pointer"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16v12H4z" />
@@ -481,7 +481,7 @@ export default function RoomPage() {
                 <button
                   onClick={handleExportPdf}
                   aria-label="Export as PDF"
-                  className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[var(--text)] hover:bg-[var(--surface-hover)]"
+                  className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[var(--text)] hover:bg-[var(--surface-hover)] cursor-pointer"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
@@ -501,7 +501,7 @@ export default function RoomPage() {
           {/* Share button */}
           <button
             onClick={() => setShowShareModal(true)}
-            className="px-3 py-1.5 text-sm bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-black font-medium rounded-lg transition-colors flex items-center gap-1.5"
+            className="px-3 py-1.5 text-sm bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-black font-medium rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
@@ -521,7 +521,7 @@ export default function RoomPage() {
           {/* Leave button */}
           <button
             onClick={handleLeaveRoom}
-            className="px-3 py-1.5 text-sm bg-[var(--surface-hover)] hover:bg-red-500/20 hover:text-red-400 border border-[var(--border)] rounded-lg transition-colors"
+            className="px-3 py-1.5 text-sm bg-[var(--surface-hover)] hover:bg-red-500/20 hover:text-red-400 border border-[var(--border)] rounded-lg transition-colors cursor-pointer"
           >
             Leave
           </button>
