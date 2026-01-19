@@ -15,9 +15,12 @@ import {
   clearBoard,
   getNewHostId,
   getRoomExpiryInfo,
-  touchRoom
+  touchRoom,
+  addSticky,
+  updateSticky,
+  removeSticky
 } from '../rooms/manager';
-import { Stroke, TextItem, ShapeItem, JoinRoomPayload, CursorUpdate, Point, ChatMessage } from '../types';
+import { Stroke, TextItem, ShapeItem, StickyNote, JoinRoomPayload, CursorUpdate, Point, ChatMessage } from '../types';
 
 interface SocketData {
   userId: string;
@@ -163,6 +166,36 @@ export function setupSocketHandlers(io: Server) {
 
       if (removeShape(roomId, shapeId)) {
         socket.to(roomId).emit('shape:removed', shapeId);
+      }
+    });
+
+    // Sticky added
+    socket.on('sticky:add', (sticky: StickyNote) => {
+      if (!socketData) return;
+      const { roomId } = socketData;
+
+      if (addSticky(roomId, sticky)) {
+        socket.to(roomId).emit('sticky:added', sticky);
+      }
+    });
+
+    // Sticky updated
+    socket.on('sticky:update', (sticky: StickyNote) => {
+      if (!socketData) return;
+      const { roomId } = socketData;
+
+      if (updateSticky(roomId, sticky)) {
+        socket.to(roomId).emit('sticky:updated', sticky);
+      }
+    });
+
+    // Sticky removed
+    socket.on('sticky:remove', (stickyId: string) => {
+      if (!socketData) return;
+      const { roomId } = socketData;
+
+      if (removeSticky(roomId, stickyId)) {
+        socket.to(roomId).emit('sticky:removed', stickyId);
       }
     });
 

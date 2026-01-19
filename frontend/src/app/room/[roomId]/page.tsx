@@ -14,7 +14,7 @@ import { ChatPanel } from "@/components/ChatPanel";
 import { ShareModal } from "@/components/ShareModal";
 import { JoinPromptModal } from "@/components/JoinPromptModal";
 import { ToastContainer, useToasts } from "@/components/Toast";
-import { RoomStatePayload, Stroke, TextItem, User, CursorPosition, RoomErrorPayload, ChatMessage } from "@/lib/types";
+import { RoomStatePayload, Stroke, TextItem, ShapeItem, StickyNote, User, CursorPosition, RoomErrorPayload, ChatMessage } from "@/lib/types";
 
 export default function RoomPage() {
   const params = useParams();
@@ -42,12 +42,12 @@ export default function RoomPage() {
   const userIdRef = useRef<string | null>(null);
   const clerkUserIdRef = useRef<string | null>(null);
   const exportMenuRef = useRef<HTMLDivElement | null>(null);
-  
+
   // Update ref in effect to avoid updating during render
   useEffect(() => {
     addToastRef.current = addToast;
   }, [addToast]);
-  
+
   const {
     isConnected,
     userId,
@@ -63,6 +63,12 @@ export default function RoomPage() {
     addText,
     updateText,
     removeText,
+    addShape,
+    updateShape,
+    removeShape,
+    addSticky,
+    updateSticky,
+    removeSticky,
     addMessage,
     clearBoard,
     addUser,
@@ -128,6 +134,12 @@ export default function RoomPage() {
     socket.off("text:added");
     socket.off("text:updated");
     socket.off("text:removed");
+    socket.off("shape:added");
+    socket.off("shape:updated");
+    socket.off("shape:removed");
+    socket.off("sticky:added");
+    socket.off("sticky:updated");
+    socket.off("sticky:removed");
     socket.off("chat:new");
     socket.off("board:cleared");
     socket.off("user:joined");
@@ -137,15 +149,15 @@ export default function RoomPage() {
 
     socket.on("connect", () => {
       setConnected(true);
-      
+
       // Get username from sessionStorage
       const storedName = sessionStorage.getItem("userName") || "Anonymous";
       setUserName(storedName);
-      
+
       // Join the room - pass isCreating flag and Clerk user ID for persistence
-      socket.emit("room:join", { 
-        roomId, 
-        userName: storedName, 
+      socket.emit("room:join", {
+        roomId,
+        userName: storedName,
         isCreating: isCreatingRef.current,
         clerkUserId: clerkUserIdRef.current || undefined
       });
@@ -157,7 +169,7 @@ export default function RoomPage() {
         type: "error",
         message: error.message,
       });
-      
+
       // Disconnect and redirect after a short delay
       setTimeout(() => {
         disconnectSocket();
@@ -196,6 +208,30 @@ export default function RoomPage() {
       removeText(textId);
     });
 
+    socket.on("shape:added", (shape: ShapeItem) => {
+      addShape(shape);
+    });
+
+    socket.on("shape:updated", (shape: ShapeItem) => {
+      updateShape(shape);
+    });
+
+    socket.on("shape:removed", (shapeId: string) => {
+      removeShape(shapeId);
+    });
+
+    socket.on("sticky:added", (sticky: StickyNote) => {
+      addSticky(sticky);
+    });
+
+    socket.on("sticky:updated", (sticky: StickyNote) => {
+      updateSticky(sticky);
+    });
+
+    socket.on("sticky:removed", (stickyId: string) => {
+      removeSticky(stickyId);
+    });
+
     socket.on("chat:new", (message: ChatMessage) => {
       addMessageRef.current(message);
       if (!isChatOpenRef.current && message.userId !== userIdRef.current) {
@@ -221,7 +257,7 @@ export default function RoomPage() {
       // Get user info before removing for the toast
       const users = useWhiteboardStore.getState().users;
       const leavingUser = users[userId];
-      
+
       if (leavingUser) {
         addToastRef.current({
           type: "leave",
@@ -229,7 +265,7 @@ export default function RoomPage() {
           userColor: leavingUser.color,
         });
       }
-      
+
       removeUser(userId);
       removeRemoteCursor(userId);
     });
@@ -373,10 +409,10 @@ export default function RoomPage() {
   // Show join prompt if user doesn't have a name
   if (showJoinPrompt) {
     return (
-      <JoinPromptModal 
-        roomId={roomId} 
-        onJoin={handleJoinWithName} 
-        onCancel={handleCancelJoin} 
+      <JoinPromptModal
+        roomId={roomId}
+        onJoin={handleJoinWithName}
+        onCancel={handleCancelJoin}
       />
     );
   }
@@ -422,11 +458,10 @@ export default function RoomPage() {
             aria-label={isChatOpen ? "Close chat" : "Open chat"}
             aria-pressed={isChatOpen}
             title="Chat"
-            className={`relative w-9 h-9 rounded-lg border border-[var(--border)] flex items-center justify-center transition-colors ${
-              isChatOpen
-                ? "bg-[var(--primary)] text-black"
-                : "bg-[var(--surface-hover)] hover:bg-[var(--primary)] hover:text-black"
-            }`}
+            className={`relative w-9 h-9 rounded-lg border border-[var(--border)] flex items-center justify-center transition-colors ${isChatOpen
+              ? "bg-[var(--primary)] text-black"
+              : "bg-[var(--surface-hover)] hover:bg-[var(--primary)] hover:text-black"
+              }`}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
@@ -449,11 +484,10 @@ export default function RoomPage() {
               aria-haspopup="menu"
               aria-expanded={isExportOpen}
               title="Export"
-              className={`relative w-9 h-9 rounded-lg border border-[var(--border)] flex items-center justify-center transition-colors ${
-                isExportOpen
-                  ? "bg-[var(--primary)] text-black"
-                  : "bg-[var(--surface-hover)] hover:bg-[var(--primary)] hover:text-black"
-              }`}
+              className={`relative w-9 h-9 rounded-lg border border-[var(--border)] flex items-center justify-center transition-colors ${isExportOpen
+                ? "bg-[var(--primary)] text-black"
+                : "bg-[var(--surface-hover)] hover:bg-[var(--primary)] hover:text-black"
+                }`}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -543,10 +577,10 @@ export default function RoomPage() {
       />
 
       {/* Share Modal */}
-      <ShareModal 
-        isOpen={showShareModal} 
-        onClose={() => setShowShareModal(false)} 
-        roomId={roomId} 
+      <ShareModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        roomId={roomId}
       />
 
       {/* Toast notifications */}

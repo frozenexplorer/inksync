@@ -1,4 +1,4 @@
-import { Room, WhiteboardState, Stroke, TextItem, ShapeItem, User, ChatMessage } from '../types';
+import { Room, WhiteboardState, Stroke, TextItem, ShapeItem, StickyNote, User, ChatMessage } from '../types';
 
 // In-memory room storage
 const rooms = new Map<string, Room>();
@@ -31,6 +31,7 @@ function createEmptyState(): WhiteboardState {
     strokes: {},
     texts: {},
     shapes: {},
+    stickies: {},
     users: {},
     messages: []
   };
@@ -248,6 +249,7 @@ export function clearBoard(roomId: string, userId: string): boolean {
   room.state.strokes = {};
   room.state.texts = {};
   room.state.shapes = {};
+  room.state.stickies = {};
   return true;
 }
 
@@ -272,6 +274,31 @@ export function removeShape(roomId: string, shapeId: string): boolean {
   if (!room) return false;
   if (!room.state.shapes[shapeId]) return false;
   delete room.state.shapes[shapeId];
+  delete room.state.shapes[shapeId];
+  return true;
+}
+
+// Sticky Note management functions
+export function addSticky(roomId: string, sticky: StickyNote): boolean {
+  const room = rooms.get(roomId);
+  if (!room) return false;
+  room.state.stickies[sticky.id] = sticky;
+  return true;
+}
+
+export function updateSticky(roomId: string, sticky: StickyNote): boolean {
+  const room = rooms.get(roomId);
+  if (!room) return false;
+  if (!room.state.stickies[sticky.id]) return false;
+  room.state.stickies[sticky.id] = sticky;
+  return true;
+}
+
+export function removeSticky(roomId: string, stickyId: string): boolean {
+  const room = rooms.get(roomId);
+  if (!room) return false;
+  if (!room.state.stickies[stickyId]) return false;
+  delete room.state.stickies[stickyId];
   return true;
 }
 

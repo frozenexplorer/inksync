@@ -5,10 +5,11 @@ import { AnimatePresence } from "framer-motion";
 import { useWhiteboardStore } from "@/store/whiteboard";
 import { getSocket } from "@/lib/socket";
 import { nanoid } from "nanoid";
-import { Point, Stroke, TextItem, ShapeItem, Tool } from "@/lib/types";
+import { Point, Stroke, TextItem, ShapeItem, StickyNote, Tool } from "@/lib/types";
 import { clampTextSize, DEFAULT_TEXT_FONT_FAMILY } from "@/lib/typography";
 import { TextOverlay } from "./TextOverlay";
 import { CursorTooltips } from "./CursorTooltips";
+import { StickyNote as StickyNoteComponent } from "./StickyNote";
 
 type TextLayout = {
   width: number;
@@ -112,6 +113,7 @@ export function Canvas() {
     strokes,
     texts,
     shapes,
+    stickies,
     currentStroke,
     tool,
     penColor,
@@ -126,6 +128,7 @@ export function Canvas() {
     textInputPosition,
     eraserMode,
     eraserSize,
+    selectedStickyId,
     startStroke,
     extendStroke,
     finishStroke,
@@ -140,6 +143,10 @@ export function Canvas() {
     addShape,
     updateShape,
     removeShape,
+    addSticky,
+    updateSticky,
+    removeSticky,
+    setSelectedStickyId,
   } = useWhiteboardStore();
 
   const textsRef = useRef(texts);
@@ -335,6 +342,57 @@ export function Canvas() {
       );
       ctx.stroke();
     }
+
+    ctx.restore();
+  }, []);
+
+  const drawSticky = useCallback((ctx: CanvasRenderingContext2D, sticky: StickyNote) => {
+    ctx.save();
+    // Shadow
+    ctx.shadowColor = "rgba(0,0,0,0.15)";
+    ctx.shadowBlur = 12;
+    ctx.shadowOffsetY = 6;
+
+    // Background
+    ctx.fillStyle = sticky.color || "#ffebb3";
+    ctx.fillRect(sticky.position.x, sticky.position.y, sticky.width, sticky.height);
+
+    // Border (subtle)
+    ctx.strokeStyle = "rgba(0,0,0,0.05)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(sticky.position.x, sticky.position.y, sticky.width, sticky.height);
+
+    // Text area clipping
+    ctx.beginPath();
+    ctx.rect(sticky.position.x, sticky.position.y, sticky.width, sticky.height);
+    ctx.clip();
+
+    // Text
+    ctx.fillStyle = "#1e1e1e"; // Dark text
+    ctx.font = "16px 'Outfit', sans-serif";
+    ctx.textBaseline = "top";
+
+    const words = (sticky.content || "").split(" ");
+    let line = "";
+    let y = sticky.position.y + 20;
+    const x = sticky.position.x + 20;
+    const maxWidth = sticky.width - 40;
+    const lineHeight = 24;
+
+    for (let n = 0; n < words.length; n++) {
+      const testLine = line + words[n] + " ";
+      const metrics = ctx.measureText(testLine);
+      const testWidth = metrics.width;
+      if (testWidth > maxWidth && n > 0) {
+        ctx.fillText(line, x, y);
+        line = words[n] + " ";
+        y += lineHeight;
+        if (y > sticky.position.y + sticky.height - 20) break; // Stop rendering if full
+      } else {
+        line = testLine;
+      }
+    }
+    ctx.fillText(line, x, y);
 
     ctx.restore();
   }, []);
@@ -1057,6 +1115,10 @@ export function Canvas() {
       lastPoint.current = point;
       setCurrentShape({ start: point, end: point });
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    } else if (tool === "sticky") {
+      isDrawing.current = true;
+      lastPoint.current = point;
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
     }
   };
 
@@ -1099,7 +1161,8 @@ export function Canvas() {
       extendStroke(point);
       lastPoint.current = point;
       emitCursorPosition(point, true);
-      emitCursorPosition(point, true);
+    } else if (tool === "eraser") {
+      scheduleErase(point);
     } else if (tool === "shape" && currentShape) {
       setCurrentShape({ ...currentShape, end: point });
       // Throttle shape updates if needed, but for local drawing 60fps is fine
@@ -1202,6 +1265,21 @@ export function Canvas() {
         getSocket().emit("shape:add", shape);
       }
       setCurrentShape(null);
+    } else if (tool === "sticky") {
+      // Create centered on cursor
+      const width = 200;
+      const height = 200;
+      const sticky: StickyNote = {
+        id: nanoid(),
+        position: { x: point.x - width / 2, y: point.y - height / 2 },
+        content: "Edit me!",
+        color: "#ffebb3", // Default yellow
+        width,
+        height,
+        authorId: userId || "anonymous",
+      };
+      addSticky(sticky);
+      getSocket().emit("sticky:add", sticky);
     }
   };
 
@@ -1467,6 +1545,8 @@ export function Canvas() {
         return "cursor-grab";
       case "shape":
         return "cursor-crosshair";
+      case "sticky":
+        return "cursor-alias";
       default:
         return "";
     }
@@ -1680,6 +1760,33 @@ export function Canvas() {
 
       {/* Remote cursor tooltips */}
       <CursorTooltips offset={panOffset} zoom={zoom} />
+
+      {/* Sticky Notes as HTML overlays */}
+      <AnimatePresence>
+        {Object.values(stickies).map((sticky) => (
+          <StickyNoteComponent
+            key={sticky.id}
+            sticky={sticky}
+            zoom={zoom}
+            panOffset={panOffset}
+            isSelected={selectedStickyId === sticky.id}
+            onUpdate={(updatedSticky) => {
+              updateSticky(updatedSticky);
+              getSocket().emit("sticky:update", updatedSticky);
+            }}
+            onDelete={(id) => {
+              removeSticky(id);
+              getSocket().emit("sticky:remove", id);
+              if (selectedStickyId === id) {
+                setSelectedStickyId(null);
+              }
+            }}
+            onSelect={(id) => {
+              setSelectedStickyId(id);
+            }}
+          />
+        ))}
+      </AnimatePresence>
 
       {/* Text input overlay */}
       <AnimatePresence>

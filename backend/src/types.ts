@@ -52,10 +52,21 @@ export interface ShapeItem {
   authorId: string;
 }
 
+export interface StickyNote {
+  id: string;
+  position: Point;
+  content: string;
+  color: string;
+  width: number;
+  height: number;
+  authorId: string;
+}
+
 export interface WhiteboardState {
   strokes: Record<string, Stroke>;
   texts: Record<string, TextItem>;
   shapes: Record<string, ShapeItem>;
+  stickies: Record<string, StickyNote>;
   users: Record<string, User>;
   messages: ChatMessage[];
 }

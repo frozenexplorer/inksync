@@ -61,6 +61,9 @@ interface WhiteboardStore {
   // Text input state
   textInputPosition: Point | null;
 
+  // Sticky note selection
+  selectedStickyId: string | null;
+
   // Actions
   setConnected: (connected: boolean) => void;
   setRoomId: (roomId: string | null) => void;
@@ -127,6 +130,9 @@ interface WhiteboardStore {
   // Text input
   setTextInputPosition: (position: Point | null) => void;
 
+  // Sticky note selection
+  setSelectedStickyId: (id: string | null) => void;
+
   // Reset
   reset: () => void;
 }
@@ -165,6 +171,9 @@ const initialState = {
   // Zoom
   zoom: 100,
   panOffset: { x: 0, y: 0 },
+
+  // Sticky note selection
+  selectedStickyId: null,
 };
 
 export const useWhiteboardStore = create<WhiteboardStore>((set, get) => ({
@@ -354,6 +363,8 @@ export const useWhiteboardStore = create<WhiteboardStore>((set, get) => ({
   zoomOut: () => set((state) => ({ zoom: Math.max(state.zoom - 10, 10) })),
   fitToScreen: () => set({ zoom: 100, panOffset: { x: 0, y: 0 } }),
   setPanOffset: (panOffset) => set({ panOffset }),
+
+  setSelectedStickyId: (selectedStickyId) => set({ selectedStickyId }),
 
   reset: () => set(initialState),
 }));
