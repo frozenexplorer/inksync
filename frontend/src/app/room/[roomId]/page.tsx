@@ -383,22 +383,22 @@ export default function RoomPage() {
 
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-[var(--background)] flex flex-col">
+    <div className="h-screen w-screen overflow-hidden bg-(--background) flex flex-col">
       {/* Header */}
       <motion.header
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="h-14 border-b border-[var(--border)] bg-[var(--surface)] flex items-center justify-between px-4 flex-shrink-0"
+        className="h-14 border-b border-(--border) bg-(--surface) flex items-center justify-between px-4 shrink-0"
       >
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[var(--primary)] to-[var(--accent)] flex items-center justify-center">
+          <div className="w-8 h-8 rounded-lg bg-linear-to-br from-(--primary) to-(--accent) flex items-center justify-center">
             <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
             </svg>
           </div>
           <div>
             <h1 className="font-semibold text-sm">InkSync</h1>
-            <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
+            <div className="flex items-center gap-2 text-xs text-(--text-muted)">
               <span>Room: {roomId}</span>
             </div>
           </div>
@@ -408,7 +408,7 @@ export default function RoomPage() {
           {/* Connection status */}
           <div className="flex items-center gap-2 text-sm">
             <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'} ${isConnected ? '' : 'animate-pulse-slow'}`} />
-            <span className="text-[var(--text-muted)] text-xs hidden sm:inline">
+            <span className="text-(--text-muted) text-xs hidden sm:inline">
               {isConnected ? 'Connected' : 'Connecting...'}
             </span>
           </div>
@@ -422,10 +422,10 @@ export default function RoomPage() {
             aria-label={isChatOpen ? "Close chat" : "Open chat"}
             aria-pressed={isChatOpen}
             title="Chat"
-            className={`relative w-9 h-9 rounded-lg border border-[var(--border)] flex items-center justify-center transition-colors cursor-pointer ${
+            className={`relative w-9 h-9 rounded-lg border border-(--border) flex items-center justify-center transition-colors cursor-pointer ${
               isChatOpen
-                ? "bg-[var(--primary)] text-black"
-                : "bg-[var(--surface-hover)] hover:bg-[var(--primary)] hover:text-black"
+                ? "bg-(--primary) text-black"
+                : "bg-(--surface-hover) hover:bg-(--primary) hover:text-black"
             }`}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -437,7 +437,7 @@ export default function RoomPage() {
               />
             </svg>
             {hasUnread && !isChatOpen && (
-              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[var(--secondary)] ring-2 ring-[var(--surface)]" />
+              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-(--secondary) ring-2 ring-(--surface)" />
             )}
           </button>
 
@@ -449,10 +449,10 @@ export default function RoomPage() {
               aria-haspopup="menu"
               aria-expanded={isExportOpen}
               title="Export"
-              className={`relative w-9 h-9 rounded-lg border border-[var(--border)] flex items-center justify-center transition-colors cursor-pointer ${
+              className={`relative w-9 h-9 rounded-lg border border-(--border) flex items-center justify-center transition-colors cursor-pointer ${
                 isExportOpen
-                  ? "bg-[var(--primary)] text-black"
-                  : "bg-[var(--surface-hover)] hover:bg-[var(--primary)] hover:text-black"
+                  ? "bg-(--primary) text-black"
+                  : "bg-(--surface-hover) hover:bg-(--primary) hover:text-black"
               }`}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -466,11 +466,11 @@ export default function RoomPage() {
             </button>
 
             {isExportOpen && (
-              <div className="absolute right-0 top-full mt-2 w-40 rounded-xl border border-[var(--border)] bg-[var(--surface)]/95 p-2 shadow-xl backdrop-blur z-40">
+              <div className="absolute right-0 top-full mt-2 w-40 rounded-xl border border-(--border) bg-(--surface)/95 p-2 shadow-xl backdrop-blur z-40">
                 <button
                   onClick={handleExportPng}
                   aria-label="Export as PNG"
-                  className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[var(--text)] hover:bg-[var(--surface-hover)] cursor-pointer"
+                  className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-(--text) hover:bg-(--surface-hover) cursor-pointer"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16v12H4z" />
@@ -481,7 +481,7 @@ export default function RoomPage() {
                 <button
                   onClick={handleExportPdf}
                   aria-label="Export as PDF"
-                  className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[var(--text)] hover:bg-[var(--surface-hover)] cursor-pointer"
+                  className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-(--text) hover:bg-(--surface-hover) cursor-pointer"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
@@ -501,7 +501,7 @@ export default function RoomPage() {
           {/* Share button */}
           <button
             onClick={() => setShowShareModal(true)}
-            className="px-3 py-1.5 text-sm bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-black font-medium rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+            className="px-3 py-1.5 text-sm bg-(--primary) hover:bg-(--primary-hover) text-black font-medium rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
@@ -510,7 +510,7 @@ export default function RoomPage() {
           </button>
 
           {/* User info */}
-          <div className="hidden md:flex items-center gap-2 text-sm text-[var(--text-muted)] border-l border-[var(--border)] pl-3">
+          <div className="hidden md:flex items-center gap-2 text-sm text-(--text-muted) border-l border-(--border) pl-3">
             {isSignedIn ? (
               <UserButton />
             ) : (
@@ -521,7 +521,7 @@ export default function RoomPage() {
           {/* Leave button */}
           <button
             onClick={handleLeaveRoom}
-            className="px-3 py-1.5 text-sm bg-[var(--surface-hover)] hover:bg-red-500/20 hover:text-red-400 border border-[var(--border)] rounded-lg transition-colors cursor-pointer"
+            className="px-3 py-1.5 text-sm bg-(--surface-hover) hover:bg-red-500/20 hover:text-red-400 border border-(--border) rounded-lg transition-colors cursor-pointer"
           >
             Leave
           </button>
