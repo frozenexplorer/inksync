@@ -27,7 +27,7 @@ function initials(name: string) {
 
 function Kbd({ children }: { children: string }) {
   return (
-    <kbd className="px-2 py-0.5 rounded-md border border-[var(--border)] bg-[var(--surface-hover)] text-[10px] font-medium text-[var(--text-muted)]">
+    <kbd className="px-2 py-0.5 rounded-md border border-(--border) bg-(--surface-hover) text-[10px] font-medium text-(--text-muted)">
       {children}
     </kbd>
   );
@@ -52,13 +52,13 @@ function IconButton({
       aria-label={label}
       aria-pressed={pressed}
       className={cx(
-        "relative w-9 h-9 rounded-xl border border-[var(--border)] flex items-center justify-center transition-all",
-        "bg-[var(--surface)]/60 backdrop-blur-xl hover:bg-[var(--surface-hover)]/80 hover:shadow-sm",
-        pressed ? "ring-2 ring-[var(--primary)]/45" : "",
+        "relative w-9 h-9 rounded-xl border border-(--border) flex items-center justify-center transition-all cursor-pointer",
+        "bg-(--surface)/60 backdrop-blur-xl hover:bg-(--surface-hover)/80 hover:shadow-sm",
+        pressed ? "ring-2 ring-(--primary)/45" : "",
         className
       )}
     >
-      <span className={cx("transition-colors", pressed ? "text-[var(--text)]" : "text-[var(--text-muted)]")}>
+      <span className={cx("transition-colors", pressed ? "text-(--text)" : "text-(--text-muted)")}>
         {children}
       </span>
     </button>
@@ -115,7 +115,7 @@ function TiltSurface({
 function PremiumBackdrop() {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-b from-black/0 via-black/0 to-black/25" />
+      <div className="absolute inset-0 bg-linear-to-b from-black/0 via-black/0 to-black/25" />
 
       {/* Soft grid (masked) */}
       <div
@@ -152,7 +152,7 @@ function PremiumBackdrop() {
 
 function BadgePill({ icon, label }: { icon: string; label: string }) {
   return (
-    <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[var(--border)] bg-[var(--surface)]/65 backdrop-blur-xl text-xs text-[var(--text-muted)]">
+    <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-(--border) bg-(--surface)/65 backdrop-blur-xl text-xs text-(--text-muted)">
       <span>{icon}</span>
       <span className="font-medium">{label}</span>
     </span>
@@ -161,20 +161,20 @@ function BadgePill({ icon, label }: { icon: string; label: string }) {
 
 function InfoCard({ title, desc }: { title: string; desc: string }) {
   return (
-    <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/55 backdrop-blur-xl p-4">
-      <div className="text-xs font-semibold text-[var(--text)]">{title}</div>
-      <div className="mt-1 text-[11px] leading-relaxed text-[var(--text-muted)]">{desc}</div>
+    <div className="rounded-2xl border border-(--border) bg-(--surface)/55 backdrop-blur-xl p-4">
+      <div className="text-xs font-semibold text-(--text)">{title}</div>
+      <div className="mt-1 text-[11px] leading-relaxed text-(--text-muted)">{desc}</div>
     </div>
   );
 }
 
-/** Simple typewriter effect (client-only, safe in Next "use client") */
+/** Simple typewriter effect  */
 function Typewriter({
   words,
   className,
   typingMs = 55,
   deletingMs = 32,
-  pauseMs = 900,
+  pauseMs = 1000,
   cursor = true,
 }: {
   words: string[];
@@ -261,7 +261,7 @@ export default function Home() {
   // Platform + origin
   const [isMac, setIsMac] = useState(false);
   const [origin, setOrigin] = useState<string>("");
-  const [isDesktop, setIsDesktop] = useState(false); // >= lg
+  const [isDesktop, setIsDesktop] = useState(false); 
 
   useEffect(() => {
     try {
@@ -294,7 +294,7 @@ export default function Home() {
     }
   }, [isDesktop]);
 
-  // Prefill name from Clerk or sessionStorage (CORE LOGIC UNCHANGED)
+  // Prefill name from Clerk or sessionStorage 
   useEffect(() => {
     if (isSignedIn && user) {
       const name = user.firstName || user.username || "User";
@@ -310,7 +310,6 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSignedIn, user]);
 
-  // Clear errors when switching tabs (CORE LOGIC UNCHANGED)
   useEffect(() => {
     setErrorMessage(null);
     setIsLoading(false);
@@ -513,7 +512,6 @@ export default function Home() {
                 Home
               </span>
             </div>
-            {/* CHANGED: Built -> Built */}
             <div className="text-xs text-(--text-muted) truncate">Realtime rooms • Clean tools • Built for focus</div>
           </div>
         </div>
@@ -577,12 +575,12 @@ export default function Home() {
             ) : (
               <>
                 <SignInButton mode="modal">
-                  <button className="px-3 py-1.5 text-sm font-medium text-(--text-muted) hover:text-(--text) transition-colors">
+                  <button className="px-3 py-1.5 text-sm font-medium text-(--text-muted) hover:text-(--text) transition-colors cursor-pointer">
                     Sign in
                   </button>
                 </SignInButton>
                 <SignUpButton mode="modal">
-                  <button className="px-3 py-1.5 text-sm font-semibold bg-(--primary) hover:bg-(--primary-hover) text-black rounded-xl transition-colors shadow-sm">
+                  <button className="px-3 py-1.5 text-sm font-semibold bg-(--primary) hover:bg-(--primary-hover) text-black rounded-xl transition-colors shadow-sm cursor-pointer">
                     Sign up free
                   </button>
                 </SignUpButton>
@@ -597,7 +595,7 @@ export default function Home() {
             aria-expanded={isNavOpen}
             aria-controls="mobile-nav-panel"
             className={cx(
-              "lg:hidden w-10 h-10 rounded-xl border border-(--border) flex items-center justify-center transition-all",
+              "lg:hidden w-10 h-10 rounded-xl border border-(--border) flex items-center justify-center transition-all cursor-pointer",
               "bg-(--surface)/70 backdrop-blur-xl hover:bg-(--surface-hover)/80"
             )}
           >
@@ -631,7 +629,7 @@ export default function Home() {
                   }}
                   aria-pressed={rightOpen && activeTab === "guide"}
                   className={cx(
-                    "flex w-full items-center gap-3 rounded-xl border border-(--border) px-3 py-2 text-left text-sm transition-colors",
+                    "flex w-full items-center gap-3 rounded-xl border border-(--border) px-3 py-2 text-left text-sm transition-colors cursor-pointer",
                     rightOpen && activeTab === "guide"
                       ? "bg-(--primary) text-black"
                       : "bg-(--surface-hover)/50 text-(--text) hover:bg-(--surface-hover)"
@@ -656,7 +654,7 @@ export default function Home() {
                   }}
                   aria-pressed={rightOpen && activeTab === "share"}
                   className={cx(
-                    "flex w-full items-center gap-3 rounded-xl border border-(--border) px-3 py-2 text-left text-sm transition-colors",
+                    "flex w-full items-center gap-3 rounded-xl border border-(--border) px-3 py-2 text-left text-sm transition-colors cursor-pointer",
                     rightOpen && activeTab === "share"
                       ? "bg-(--primary) text-black"
                       : "bg-(--surface-hover)/50 text-(--text) hover:bg-(--surface-hover)"
@@ -686,7 +684,7 @@ export default function Home() {
                   }}
                   aria-pressed={rightOpen && activeTab === "shortcuts"}
                   className={cx(
-                    "flex w-full items-center gap-3 rounded-xl border border-(--border) px-3 py-2 text-left text-sm transition-colors",
+                    "flex w-full items-center gap-3 rounded-xl border border-(--border) px-3 py-2 text-left text-sm transition-colors cursor-pointer",
                     rightOpen && activeTab === "shortcuts"
                       ? "bg-(--primary) text-black"
                       : "bg-(--surface-hover)/50 text-(--text) hover:bg-(--surface-hover)"
@@ -719,7 +717,7 @@ export default function Home() {
                   <SignInButton mode="modal">
                     <button
                       onClick={() => setIsNavOpen(false)}
-                      className="w-full px-3 py-2 text-sm font-medium text-(--text-muted) hover:text-(--text) transition-colors rounded-xl border border-(--border) bg-(--surface-hover)/50"
+                      className="w-full px-3 py-2 text-sm font-medium text-(--text-muted) hover:text-(--text) transition-colors rounded-xl border border-(--border) bg-(--surface-hover)/50 cursor-pointer"
                     >
                       Sign in
                     </button>
@@ -727,7 +725,7 @@ export default function Home() {
                   <SignUpButton mode="modal">
                     <button
                       onClick={() => setIsNavOpen(false)}
-                      className="w-full px-3 py-2 text-sm font-semibold bg-(--primary) hover:bg-(--primary-hover) text-black rounded-xl transition-colors shadow-sm"
+                      className="w-full px-3 py-2 text-sm font-semibold bg-(--primary) hover:bg-(--primary-hover) text-black rounded-xl transition-colors shadow-sm cursor-pointer"
                     >
                       Sign up free
                     </button>
@@ -816,17 +814,17 @@ export default function Home() {
                 <TiltSurface intensity={10}>
                   <div
                     className={cx(
-                      "rounded-3xl border border-[var(--border)] bg-[var(--surface)]/70 backdrop-blur-xl overflow-hidden",
+                      "rounded-3xl border border-(--border) bg-(--surface)/70 backdrop-blur-xl overflow-hidden",
                       "shadow-[0_22px_80px_rgba(0,0,0,0.50)]"
                     )}
                     style={{ transform: "translateZ(16px)" }}
                   >
                     {/* Auth banner */}
-                    <div className="px-5 py-4 border-b border-[var(--border)] bg-[var(--surface-hover)]/70 backdrop-blur-xl">
+                    <div className="px-5 py-4 border-b border-(--border) bg-(--surface-hover)/70 backdrop-blur-xl">
                       {isSignedIn ? (
                         <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-green-500/10 border border-green-500/20 text-green-200 text-sm">
                           <span className="text-base">✓</span>
-                          Signed in as <strong className="text-[var(--text)]">{user?.firstName || user?.username}</strong>
+                          Signed in as <strong className="text-(--text)">{user?.firstName || user?.username}</strong>
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-200 text-sm">
@@ -838,16 +836,16 @@ export default function Home() {
 
                     <div className="p-5">
                       {/* Tabs */}
-                      <div className="flex items-center gap-2 p-2 rounded-2xl border border-[var(--border)] bg-[var(--surface-hover)]/65 backdrop-blur-xl">
+                      <div className="flex items-center gap-2 p-2 rounded-2xl border border-(--border) bg-(--surface-hover)/65 backdrop-blur-xl">
                         <button
                           type="button"
                           onClick={() => setTab("create")}
                           className={cx(
-                            "flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border",
-                            "focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/50",
+                            "flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border cursor-pointer",
+                            "focus:outline-none focus:ring-2 focus:ring-(--primary)/50",
                             tab === "create"
-                              ? "bg-[var(--primary)] text-black border-[var(--primary)] shadow-sm"
-                              : "bg-[var(--surface)]/60 text-[var(--text-muted)] border-[var(--border)] hover:bg-[var(--surface-hover)] hover:text-[var(--text)]"
+                              ? "bg-(--primary) text-black border-(--primary) shadow-sm"
+                              : "bg-(--surface)/60 text-(--text-muted) border-(--border) hover:bg-(--surface-hover) hover:text-(--text)"
                           )}
                         >
                           Create Room
@@ -857,11 +855,11 @@ export default function Home() {
                           type="button"
                           onClick={() => setTab("join")}
                           className={cx(
-                            "flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border",
-                            "focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/50",
+                            "flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border cursor-pointer",
+                            "focus:outline-none focus:ring-2 focus:ring-(--primary)/50",
                             tab === "join"
-                              ? "bg-[var(--primary)] text-black border-[var(--primary)] shadow-sm"
-                              : "bg-[var(--surface)]/60 text-[var(--text-muted)] border-[var(--border)] hover:bg-[var(--surface-hover)] hover:text-[var(--text)]"
+                              ? "bg-(--primary) text-black border-(--primary) shadow-sm"
+                              : "bg-(--surface)/60 text-(--text-muted) border-(--border) hover:bg-(--surface-hover) hover:text-(--text)"
                           )}
                         >
                           Join Room
@@ -872,7 +870,7 @@ export default function Home() {
                         {/* Name (guest only) */}
                         {!isSignedIn && (
                           <div>
-                            <label className="block text-sm font-medium text-[var(--text)] mb-1.5">Your name</label>
+                            <label className="block text-sm font-medium text-(--text) mb-1.5">Your name</label>
                             <input
                               value={userName}
                               onChange={(e) => setUserName(e.target.value)}
@@ -880,9 +878,9 @@ export default function Home() {
                               maxLength={20}
                               className={cx(
                                 "w-full px-4 py-3 rounded-2xl",
-                                "bg-[var(--surface-hover)]/70 backdrop-blur-xl border border-[var(--border)]",
-                                "focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/60",
-                                "text-[var(--text)] placeholder:text-[var(--text-muted)]"
+                                "bg-(--surface-hover)/70 backdrop-blur-xl border border-(--border)",
+                                "focus:outline-none focus:ring-2 focus:ring-(--primary)/60",
+                                "text-(--text) placeholder:text-(--text-muted)"
                               )}
                               autoComplete="name"
                             />
@@ -899,7 +897,7 @@ export default function Home() {
                               exit={{ opacity: 0, height: 0 }}
                               transition={{ duration: 0.2 }}
                             >
-                              <label className="block text-sm font-medium text-[var(--text)] mb-1.5">Room ID</label>
+                              <label className="block text-sm font-medium text-(--text) mb-1.5">Room ID</label>
                               <input
                                 value={roomId}
                                 onChange={(e) => {
@@ -909,14 +907,14 @@ export default function Home() {
                                 placeholder="Paste a room code"
                                 maxLength={20}
                                 className={cx(
-                                  "w-full px-4 py-3 rounded-2xl bg-[var(--surface-hover)]/70 backdrop-blur-xl border focus:outline-none focus:ring-2 text-[var(--text)] placeholder:text-[var(--text-muted)]",
+                                  "w-full px-4 py-3 rounded-2xl bg-(--surface-hover)/70 backdrop-blur-xl border focus:outline-none focus:ring-2 text-(--text) placeholder:text-(--text-muted)",
                                   errorMessage
                                     ? "border-red-500/70 focus:ring-red-500/30"
-                                    : "border-[var(--border)] focus:ring-[var(--primary)]/60"
+                                    : "border-(--border) focus:ring-(--primary)/60"
                                 )}
                                 autoComplete="off"
                               />
-                              <div className="mt-2 text-[10px] text-[var(--text-muted)]">Codes are case-sensitive. No spaces.</div>
+                              <div className="mt-2 text-[10px] text-(--text-muted)">Codes are case-sensitive. No spaces.</div>
                             </motion.div>
                           )}
                         </AnimatePresence>
@@ -949,9 +947,9 @@ export default function Home() {
                           disabled={tab === "create" ? !canCreate : !canJoin}
                           className={cx(
                             "w-full py-3.5 rounded-2xl",
-                            "bg-[var(--primary)] hover:bg-[var(--primary-hover)]",
+                            "bg-(--primary) hover:bg-(--primary-hover)",
                             "disabled:opacity-50 disabled:cursor-not-allowed",
-                            "text-black font-semibold transition-all flex items-center justify-center gap-2",
+                            "text-black font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer",
                             "shadow-[0_12px_44px_rgba(0,0,0,0.35)] hover:shadow-[0_18px_70px_rgba(0,0,0,0.45)]"
                           )}
                         >
@@ -972,16 +970,16 @@ export default function Home() {
 
                         {/* Small pro details */}
                         <div className="pt-2 grid grid-cols-2 gap-2">
-                          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/55 backdrop-blur-xl p-3">
-                            <div className="text-[10px] text-[var(--text-muted)]">Workflow</div>
-                            <div className="mt-1 text-xs font-semibold text-[var(--text)]">Room-based</div>
+                          <div className="rounded-2xl border border-(--border) bg-(--surface)/55 backdrop-blur-xl p-3">
+                            <div className="text-[10px] text-(--text-muted)">Workflow</div>
+                            <div className="mt-1 text-xs font-semibold text-(--text)">Room-based</div>
                           </div>
-                          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/55 backdrop-blur-xl p-3">
-                            <div className="text-[10px] text-[var(--text-muted)]">Shortcuts</div>
-                            <div className="mt-1 text-xs font-semibold text-[var(--text)]">
+                          <div className="rounded-2xl border border-(--border) bg-(--surface)/55 backdrop-blur-xl p-3">
+                            <div className="text-[10px] text-(--text-muted)">Shortcuts</div>
+                            <div className="mt-1 text-xs font-semibold text-(--text)">
                               <span className="inline-flex items-center gap-1">
                                 <Kbd>{isMac ? "⌘N" : "Ctrl N"}</Kbd>
-                                <span className="text-[10px] text-[var(--text-muted)]">Create</span>
+                                <span className="text-[10px] text-(--text-muted)">Create</span>
                               </span>
                             </div>
                           </div>
@@ -991,9 +989,8 @@ export default function Home() {
                   </div>
                 </TiltSurface>
 
-                <div className="mt-6 text-xs text-[var(--text-muted)] flex items-center justify-between">
+                <div className="mt-6 text-xs text-(--text-muted) flex items-center justify-between">
                   <span>© {new Date().getFullYear()} InkSync</span>
-                  {/* CHANGED: Professional + Fast capitalized */}
                   <span className="hidden sm:inline">Minimal, Professional, Fast</span>
                 </div>
               </motion.div>
@@ -1038,17 +1035,17 @@ export default function Home() {
               aria-label="Home sidebar"
             >
               {/* Sidebar top bar */}
-              <div className="px-3 py-2 border-b border-[var(--border)] flex items-center justify-between">
+              <div className="px-3 py-2 border-b border-(--border) flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   {(["guide", "share", "shortcuts"] as RightTab[]).map((t) => (
                     <button
                       key={t}
                       onClick={() => setActiveTab(t)}
                       className={cx(
-                        "px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors capitalize",
+                        "px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors capitalize cursor-pointer",
                         activeTab === t
-                          ? "bg-[var(--primary)] text-black border-[var(--primary)]"
-                          : "bg-[var(--surface-hover)]/70 border-[var(--border)] hover:bg-[var(--surface)]/70"
+                          ? "bg-(--primary) text-black border-(--primary)"
+                          : "bg-(--surface-hover)/70 border-(--border) hover:bg-(--surface)/70"
                       )}
                     >
                       {t}
@@ -1057,14 +1054,14 @@ export default function Home() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <div className="hidden sm:flex items-center gap-2 text-[10px] text-[var(--text-muted)]">
+                  <div className="hidden sm:flex items-center gap-2 text-[10px] text-(--text-muted)">
                     <Kbd>{isMac ? "⌘K" : "Ctrl K"}</Kbd>
                     {/* CHANGED: remove "toggle" word */}
                   </div>
 
                   <button
                     onClick={() => setRightOpen(false)}
-                    className="w-8 h-8 rounded-xl border border-[var(--border)] bg-[var(--surface-hover)]/70 hover:bg-[var(--surface)]/70 flex items-center justify-center"
+                    className="w-8 h-8 rounded-xl border border-(--border) bg-(--surface-hover)/70 hover:bg-(--surface)/70 flex items-center justify-center cursor-pointer"
                     aria-label="Close sidebar"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1077,33 +1074,33 @@ export default function Home() {
               {/* Sidebar content */}
               {activeTab === "guide" && (
                 <div className="flex-1 overflow-auto p-4 space-y-4">
-                  <div className="rounded-3xl border border-[var(--border)] bg-[var(--surface-hover)]/65 backdrop-blur-xl p-4">
+                  <div className="rounded-3xl border border-(--border) bg-(--surface-hover)/65 backdrop-blur-xl p-4">
                     <div className="text-sm font-semibold">Getting started</div>
                     <div className="mt-2 space-y-3 text-sm">
                       <div>
                         <div className="font-medium">⚡ Fast collaboration</div>
-                        <div className="text-xs text-[var(--text-muted)]">
+                        <div className="text-xs text-(--text-muted)">
                           Create a room and share the code — everyone sees updates instantly.
                         </div>
                       </div>
                       <div>
                         <div className="font-medium">🎯 Designed for clarity</div>
-                        <div className="text-xs text-[var(--text-muted)]">
+                        <div className="text-xs text-(--text-muted)">
                           A clean interface that stays focused during meetings and teaching.
                         </div>
                       </div>
                       <div>
                         <div className="font-medium">👥 Room workflow</div>
-                        <div className="text-xs text-[var(--text-muted)]">
+                        <div className="text-xs text-(--text-muted)">
                           One room = one shared space. Simple, predictable, professional.
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="rounded-3xl border border-[var(--border)] p-4 bg-[var(--surface)]/40 backdrop-blur-xl">
+                  <div className="rounded-3xl border border-(--border) p-4 bg-(--surface)/40 backdrop-blur-xl">
                     <div className="text-sm font-semibold">Quick steps</div>
-                    <ol className="mt-2 space-y-2 text-xs text-[var(--text-muted)] list-decimal list-inside">
+                    <ol className="mt-2 space-y-2 text-xs text-(--text-muted) list-decimal list-inside">
                       <li>Choose “Create Room” or “Join Room”.</li>
                       <li>Share the room code with your group.</li>
                       <li>Open the whiteboard and collaborate live.</li>
@@ -1114,26 +1111,26 @@ export default function Home() {
 
               {activeTab === "share" && (
                 <div className="flex-1 overflow-auto p-4 space-y-4">
-                  <div className="rounded-3xl border border-[var(--border)] bg-[var(--surface-hover)]/65 backdrop-blur-xl p-4">
+                  <div className="rounded-3xl border border-(--border) bg-(--surface-hover)/65 backdrop-blur-xl p-4">
                     <div className="text-sm font-semibold">Share your board</div>
-                    <div className="text-xs text-[var(--text-muted)] mt-1">
+                    <div className="text-xs text-(--text-muted) mt-1">
                       Create a room, then share the room code shown in the board header.
                     </div>
 
                     <div className="mt-3 space-y-2">
-                      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/55 p-3">
-                        <div className="text-[10px] text-[var(--text-muted)]">Base URL</div>
+                      <div className="rounded-2xl border border-(--border) bg-(--surface)/55 p-3">
+                        <div className="text-[10px] text-(--text-muted)">Base URL</div>
                         <div className="text-xs truncate mt-1">{origin || "Loading…"}</div>
                       </div>
 
                       <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0">
-                          <div className="text-[10px] text-[var(--text-muted)]">Copy base URL</div>
-                          <div className="text-xs text-[var(--text-muted)]">Useful for sharing + troubleshooting</div>
+                          <div className="text-[10px] text-(--text-muted)">Copy base URL</div>
+                          <div className="text-xs text-(--text-muted)">Useful for sharing + troubleshooting</div>
                         </div>
                         <button
                           onClick={() => copyToClipboard(origin || "", "Base URL copied")}
-                          className="px-3 py-2 rounded-2xl bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-black text-xs font-medium transition-colors disabled:opacity-50"
+                          className="px-3 py-2 rounded-2xl bg-(--primary) hover:bg-(--primary-hover) text-black text-xs font-medium transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
                           disabled={!origin}
                         >
                           Copy
@@ -1142,9 +1139,9 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <div className="rounded-3xl border border-[var(--border)] p-4 bg-[var(--surface)]/40 backdrop-blur-xl">
+                  <div className="rounded-3xl border border-(--border) p-4 bg-(--surface)/40 backdrop-blur-xl">
                     <div className="text-sm font-semibold">Sharing checklist</div>
-                    <ul className="mt-2 space-y-2 text-xs text-[var(--text-muted)] list-disc list-inside">
+                    <ul className="mt-2 space-y-2 text-xs text-(--text-muted) list-disc list-inside">
                       <li>Send the room code (case-sensitive).</li>
                       <li>Keep the call open while collaborating.</li>
                       <li>Use “Join Room” to reconnect anytime.</li>
@@ -1155,9 +1152,9 @@ export default function Home() {
 
               {activeTab === "shortcuts" && (
                 <div className="flex-1 overflow-auto p-4 space-y-4">
-                  <div className="rounded-3xl border border-[var(--border)] bg-[var(--surface-hover)]/65 backdrop-blur-xl p-4">
+                  <div className="rounded-3xl border border-(--border) bg-(--surface-hover)/65 backdrop-blur-xl p-4">
                     <div className="text-sm font-semibold">Keyboard shortcuts</div>
-                    <div className="mt-3 space-y-2 text-xs text-[var(--text-muted)]">
+                    <div className="mt-3 space-y-2 text-xs text-(--text-muted)">
                       <div className="flex items-center justify-between">
                         <span>Toggle sidebar</span>
                         <Kbd>{isMac ? "⌘K" : "Ctrl K"}</Kbd>
@@ -1181,8 +1178,8 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <div className="rounded-3xl border border-dashed border-[var(--border)] bg-[var(--surface-hover)]/45 p-4">
-                    <div className="text-xs text-[var(--text-muted)]">
+                  <div className="rounded-3xl border border-dashed border-(--border) bg-(--surface-hover)/45 p-4">
+                    <div className="text-xs text-(--text-muted)">
                       Pro tip: keep your mouse hand free — most navigation is faster with shortcuts.
                     </div>
                   </div>
@@ -1197,7 +1194,7 @@ export default function Home() {
           <div className="absolute top-4 right-4 flex flex-col gap-2 z-30">
             <button
               onClick={() => openRight("guide")}
-              className="px-3 py-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)]/70 backdrop-blur-xl hover:bg-[var(--surface-hover)]/70 shadow-sm text-xs font-medium flex items-center gap-2"
+              className="px-3 py-2 rounded-2xl border border-(--border) bg-(--surface)/70 backdrop-blur-xl hover:bg-(--surface-hover)/70 shadow-sm text-xs font-medium flex items-center gap-2 cursor-pointer"
             >
               <span>Open</span>
               <Kbd>{isMac ? "⌘K" : "Ctrl K"}</Kbd>
